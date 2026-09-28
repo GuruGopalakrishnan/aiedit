@@ -1,0 +1,76 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "sqlite"
+  url      = env("DATABASE_URL")
+}
+
+model Project {
+  id               String   @id @default(uuid())
+  name             String
+  status           String   @default("draft")
+  captionSettings  String // JSON: CaptionSettings
+  styleSettings    String // JSON: CaptionStyle
+  createdAt        DateTime @default(now())
+  updatedAt        DateTime @updatedAt
+
+  video      VideoAsset?
+  transcript Transcript?
+  captions   Caption[]
+  renderJobs RenderJob[]
+}
+
+model VideoAsset {
+  id            String  @id @default(uuid())
+  projectId     String  @unique
+  project       Project @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  filename      String
+  originalPath  String
+  audioPath     String?
+  duration      Float
+  width         Int
+  height        Int
+  fileSize      Int
+  thumbnailPath String?
+  aspectRatio   String
+  createdAt     DateTime @default(now())
+}
+
+model Transcript {
+  id        String   @id @default(uuid())
+  projectId String   @unique
+  project   Project  @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  words     String // JSON: TranscriptWord[]
+  rawText   String
+  language  String?
+  createdAt DateTime @default(now())
+}
+
+model Caption {
+  id                String  @id @default(uuid())
+  projectId         String
+  project           Project @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  orderIndex        Int
+  start             Float
+  end               Float
+  text              String
+  words             String // JSON: TranscriptWord[]
+  highlightedWords  String // JSON: string[]
+
+  @@index([projectId, orderIndex])
+}
+
+model RenderJob {
+  id         String   @id @default(uuid())
+  projectId  String
+  project    Project  @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  status     String   @default("QUEUED")
+  progress   Int      @default(0)
+  quality    String   @default("standard")
+  outputPath String?
+  error      String?
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+}
