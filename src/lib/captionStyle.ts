@@ -77,3 +77,30 @@ export function backgroundClasses(background: CaptionStyle["background"]): strin
       return "bg-transparent";
   }
 }
+
+/**
+ * Framework-agnostic equivalents of the two helpers above, for contexts with
+ * no Tailwind stylesheet available (the Remotion renderer bundles its own
+ * page with no CSS pipeline, so class names alone would do nothing there).
+ */
+export function positionToAlignStyle(position: CaptionPosition): {
+  justifyContent: "flex-start" | "flex-end" | "center";
+  alignItems: "flex-start" | "flex-end" | "center";
+  textAlign: "left" | "right" | "center";
+} {
+  const justifyContent = position.startsWith("top") ? "flex-start" : position.startsWith("bottom") ? "flex-end" : "center";
+  const alignItems = position.endsWith("left") ? "flex-start" : position.endsWith("right") ? "flex-end" : "center";
+  const textAlign = position.endsWith("left") ? "left" : position.endsWith("right") ? "right" : "center";
+  return { justifyContent, alignItems, textAlign };
+}
+
+export function backgroundColorValue(background: CaptionStyle["background"]): string {
+  switch (background) {
+    case "solid":
+      return "rgba(0,0,0,1)";
+    case "semi-transparent":
+      return "rgba(0,0,0,0.5)";
+    default:
+      return "transparent";
+  }
+}

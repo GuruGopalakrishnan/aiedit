@@ -73,9 +73,32 @@ end-to-end in development.
 
 ## Remotion setup
 
-Caption rendering, animation templates, and final MP4 export are implemented
-as Remotion compositions under `/remotion`. Preview uses the same
-compositions as the final render so what you see matches the export.
+The final-render composition lives under `/remotion` (`CaptionedVideo.tsx`,
+registered in `Root.tsx`/`index.ts`). It shares its timing/positioning/style
+logic with the browser preview via `src/lib/captionStyle.ts` (same
+`findActiveCaption`/`findActiveWordId`, same position/stroke/background
+math), so preview and render agree on *what* should be on screen and *when*.
+They do **not** share an animation engine: the browser preview uses Motion
+(wall-clock, spring physics), while Remotion renders frame-by-frame and
+needs every value to be a pure function of the frame number, so the same 7
+animation templates are reimplemented in `remotion/animations.ts` using
+Remotion's `interpolate`/`spring`. The two are tuned to look the same, not
+guaranteed pixel-identical.
+
+Useful commands:
+
+```bash
+npm run remotion:studio  # interactive preview/scrub in Remotion Studio
+npm run remotion:render  # render remotion/index.ts's CaptionedVideo composition to out/render.mp4
+```
+
+`remotion:render` needs `--props=<path-to-json>` with `videoSrc` (an
+`http(s)://` URL — Remotion's renderer can't read an arbitrary local
+`file://` path directly, so point it at this app's own
+`/api/media/uploads/<file>` while `npm run dev` is running), `captions`,
+`style`, `durationInSeconds`, `fps`, `width`, `height`. `remotion.config.ts`
+adds the `@/*` → `src/*` webpack alias Remotion's bundler doesn't pick up
+from `tsconfig.json` on its own.
 
 ## Rendering / export
 
@@ -100,6 +123,19 @@ npx tsc --noEmit # type-check
   default, which breaks these packages' runtime binary path resolution.
 - **Upload rejected**: check the file extension (`.mp4`, `.mov`, `.webm`
   only) and the configured size/duration limits in `.env`.
+- **Remotion render fails with `Module not found: Can't resolve '@/lib/...'`**:
+  `remotion.config.ts`'s webpack alias override is missing or was reverted —
+  Remotion's bundler doesn't read `tsconfig.json` paths on its own.
+- **Remotion render fails with `Can't resolve 'path'` (or another Node
+  built-in) from a `src/lib/*` file**: some file imported by the composition
+  pulls in a Node-only module transitively (Remotion's bundle runs in
+  headless Chrome, no Node polyfills). Split the browser-safe constants
+  (like `DEFAULT_EXPORT` in `src/lib/exportDefaults.ts`) out of the
+  Node-dependent file rather than importing the whole thing.
+- **Remotion render fails with `Can only download URLs starting with
+  http:// or https://`**: `videoSrc` was given a local filesystem path.
+  Use an `http(s)://` URL the renderer can fetch — the running app's own
+  `/api/media/...` route works for this.
 - **Empty dashboard after upload**: check the terminal running `npm run dev`
   for the actual FFmpeg/transcription error — the API always returns a
   specific error message rather than a generic failure.
@@ -128,7 +164,7 @@ npx tsc --noEmit # type-check
     /ai                     AI prompts/providers
     /render                 (Phase 7)
   /types                    shared domain types + provider interfaces
-/remotion                   caption animation templates + composition (Phase 5/6)
+/remotion                   final-render composition (CaptionedVideo, Root, index) + frame-based animations.ts
 /prisma                     schema + migrations
 /storage
   /uploads /audio /renders /thumbnails
@@ -202,6 +238,29 @@ list).
   than watching them play, since no browser automation tool is available
   in this environment — worth a quick look in the browser to confirm they
   feel right, particularly the bounce/pop spring tuning.
+- **Phase 6 (Remotion) — complete and tested**: `remotion/CaptionedVideo.tsx`
+  renders the video plus the same caption content/timing/positioning as the
+  browser preview (reusing `src/lib/captionStyle.ts`), with all 7 animation
+  templates reimplemented as frame-pure functions in `remotion/animations.ts`
+  (`interpolate`/`spring` instead of Motion, since Remotion renders each
+  frame independently and can't rely on wall-clock animation state).
+  Composition duration/fps/dimensions are computed from props via
+  `calculateMetadata`. Verified for real, not just by building: actually ran
+  `npm run remotion:render` end-to-end against a real uploaded test video
+  and a realistic 6-caption dataset (with a keyword highlight), producing a
+  genuine playable MP4 (h264/aac, 1080×1920, 30fps, correct ~3s duration per
+  `ffprobe`), and visually confirmed via extracted frames that the right
+  caption text appears at the right timestamps with the configured font
+  weight, stroke and center position. Two real bugs surfaced and fixed by
+  this render test (not caught by tsc/build, since neither touches
+  Remotion's own bundler): the `@/*` path alias needed an explicit
+  `remotion.config.ts` webpack override, and `DEFAULT_EXPORT` had to move
+  out of `src/lib/config.ts` into a Node-dependency-free
+  `src/lib/exportDefaults.ts` because Remotion's browser-targeted bundle
+  can't polyfill Node's `path` module. This is exactly the kind of gap that
+  build/type-check alone would have missed, which is why the extra step of
+  actually rendering something was worth taking.
 
-Remaining phases (Remotion rendering wiring, MP4 export, polish) are
-tracked in the codebase's `/api` route stubs and service folders.
+Remaining phases (Phase 7: async render job + MP4 download endpoint, Phase
+8: polish) are tracked in the codebase's `/api` route stubs and service
+folders.

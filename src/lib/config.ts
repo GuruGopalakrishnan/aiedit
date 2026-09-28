@@ -1,5 +1,7 @@
 import path from "path";
 
+export { DEFAULT_EXPORT } from "@/lib/exportDefaults";
+
 export const STORAGE_ROOT = process.env.STORAGE_ROOT || path.join(process.cwd(), "storage");
 
 export const STORAGE_DIRS = {
@@ -25,9 +27,3 @@ export const CAPTION_CHUNKING_DEFAULTS: Record<
   long: { min: 6, max: 10 },
 };
 
-export const DEFAULT_EXPORT = {
-  width: 1080,
-  height: 1920,
-  fps: 30,
-  codec: "h264" as const,
-};
