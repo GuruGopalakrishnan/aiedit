@@ -1,11 +1,16 @@
 "use client";
 
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { useParams } from "next/navigation";
 import { VideoPlayer } from "@/components/VideoPlayer";
 import { CaptionEditor } from "@/components/CaptionEditor";
+import { CaptionOverlay } from "@/components/CaptionOverlay";
+import { CaptionSettingsPanel } from "@/components/CaptionSettingsPanel";
+import { Timeline } from "@/components/Timeline";
+import { findActiveCaption } from "@/lib/captionStyle";
 import { toMediaUrl } from "@/lib/mediaUrl";
-import type { CaptionGroup, Project } from "@/types";
+import { useDebouncedCallback } from "@/lib/useDebouncedCallback";
+import type { CaptionGroup, CaptionStyle, Project } from "@/types";
 
 function formatDuration(seconds: number) {
   const m = Math.floor(seconds / 60);
@@ -24,12 +29,15 @@ const STATUS_LABEL: Record<Project["status"], string> = {
 
 export default function EditorPage() {
   const { projectId } = useParams<{ projectId: string }>();
+  const videoRef = useRef<HTMLVideoElement>(null);
   const [project, setProject] = useState<Project | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [transcribeError, setTranscribeError] = useState<string | null>(null);
   const [transcribing, setTranscribing] = useState(false);
   const [captionError, setCaptionError] = useState<string | null>(null);
   const [generatingCaptions, setGeneratingCaptions] = useState(false);
+  const [currentTime, setCurrentTime] = useState(0);
+  const [showSafeArea, setShowSafeArea] = useState(false);
 
   const load = useCallback(async () => {
     try {
@@ -43,6 +51,7 @@ export default function EditorPage() {
   }, [projectId]);
 
   useEffect(() => {
+    // eslint-disable-next-line react-hooks/set-state-in-effect -- fetch-on-mount is intentional; `load` is also reused for manual retry after a transcription error.
     load();
   }, [load]);
 
@@ -102,6 +111,31 @@ export default function EditorPage() {
     );
   }, []);
 
+  const saveStyleSettings = useDebouncedCallback(async (styleSettings: CaptionStyle) => {
+    await fetch(`/api/projects/${projectId}`, {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ styleSettings }),
+    });
+  }, 500);
+
+  const handleStyleChange = useCallback(
+    (patch: Partial<CaptionStyle>) => {
+      setProject((prev) => {
+        if (!prev) return prev;
+        const nextStyle = { ...prev.styleSettings, ...patch };
+        saveStyleSettings(nextStyle);
+        return { ...prev, styleSettings: nextStyle };
+      });
+    },
+    [saveStyleSettings]
+  );
+
+  const seekTo = useCallback((time: number) => {
+    if (videoRef.current) videoRef.current.currentTime = time;
+    setCurrentTime(time);
+  }, []);
+
   if (error) {
     return (
       <main className="flex min-h-screen items-center justify-center bg-neutral-950 text-red-400">
@@ -123,6 +157,7 @@ export default function EditorPage() {
   const hasCaptions = project.captions.length > 0;
   const showTranscribeAction =
     project.video && !transcribing && (project.status === "draft" || project.status === "failed" || !hasTranscript);
+  const activeCaption = hasCaptions ? findActiveCaption(project.captions, currentTime) : null;
 
   return (
     <main className="flex min-h-screen flex-col bg-neutral-950 text-white">
@@ -138,41 +173,68 @@ export default function EditorPage() {
 
       <div className="flex flex-1 flex-col lg:flex-row">
         <section className="flex flex-1 items-center justify-center bg-black p-6">
-          {videoUrl ? (
-            <div className="aspect-[9/16] max-h-[70vh] w-auto">
-              <VideoPlayer src={videoUrl} />
+          {videoUrl && project.video ? (
+            <div
+              className="relative max-h-[70vh] w-auto"
+              style={{ aspectRatio: `${project.video.width} / ${project.video.height}` }}
+            >
+              <VideoPlayer
+                ref={videoRef}
+                src={videoUrl}
+                onTimeUpdate={(e) => setCurrentTime(e.currentTarget.currentTime)}
+              />
+              {hasCaptions && (
+                <CaptionOverlay
+                  captions={project.captions}
+                  style={project.styleSettings}
+                  currentTime={currentTime}
+                  showSafeArea={showSafeArea}
+                />
+              )}
             </div>
           ) : (
             <p className="text-neutral-500">No video attached to this project.</p>
           )}
         </section>
 
-        <aside className="w-full border-t border-white/10 bg-neutral-900 p-5 lg:w-80 lg:border-l lg:border-t-0">
+        <aside className="w-full overflow-y-auto border-t border-white/10 bg-neutral-900 p-5 lg:w-80 lg:border-l lg:border-t-0">
           <h2 className="text-sm font-semibold text-neutral-300">Caption Settings</h2>
-          <p className="mt-2 text-xs text-neutral-500">
-            Presets, fonts, colors, positioning, and animations will appear here once the animated
-            preview (Phase 4/5) is wired up.
-          </p>
 
           {project.video && (
-            <div className="mt-6 space-y-1 text-xs text-neutral-400">
-              <p>Duration: {formatDuration(project.video.duration)}</p>
+            <div className="mt-2 space-y-0.5 text-xs text-neutral-500">
               <p>
-                Resolution: {project.video.width}×{project.video.height} ({project.video.aspectRatio})
+                {formatDuration(project.video.duration)} · {project.video.width}×{project.video.height} (
+                {project.video.aspectRatio}) · {(project.video.fileSize / (1024 * 1024)).toFixed(1)} MB
               </p>
-              <p>Size: {(project.video.fileSize / (1024 * 1024)).toFixed(1)} MB</p>
             </div>
           )}
+
+          <div className="mt-4">
+            <CaptionSettingsPanel
+              style={project.styleSettings}
+              onChange={handleStyleChange}
+              showSafeArea={showSafeArea}
+              onToggleSafeArea={() => setShowSafeArea((v) => !v)}
+            />
+          </div>
         </aside>
       </div>
 
       <section className="border-t border-white/10 bg-neutral-900 p-4">
         <h2 className="text-sm font-semibold text-neutral-300">Timeline</h2>
-        <p className="mt-2 text-xs text-neutral-500">
-          {hasCaptions
-            ? `${project.captions.length} caption block${project.captions.length === 1 ? "" : "s"}. A visual timeline with click-to-seek lands with the animated preview (Phase 4).`
-            : "Caption blocks will appear here once captions are generated."}
-        </p>
+        {project.video && hasCaptions ? (
+          <div className="mt-3">
+            <Timeline
+              captions={project.captions}
+              duration={project.video.duration}
+              currentTime={currentTime}
+              activeCaptionId={activeCaption?.id ?? null}
+              onSeek={seekTo}
+            />
+          </div>
+        ) : (
+          <p className="mt-2 text-xs text-neutral-500">Caption blocks will appear here once captions are generated.</p>
+        )}
       </section>
 
       <section className="border-t border-white/10 bg-neutral-950 p-4">

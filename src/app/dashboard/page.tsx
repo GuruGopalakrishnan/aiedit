@@ -22,6 +22,7 @@ export default function DashboardPage() {
   };
 
   useEffect(() => {
+    // eslint-disable-next-line react-hooks/set-state-in-effect -- fetch-on-mount is intentional; `load` is also reused for manual refresh after create/duplicate/delete.
     load();
   }, []);
 

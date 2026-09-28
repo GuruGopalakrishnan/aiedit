@@ -1,16 +1,23 @@
 "use client";
 
-import { forwardRef } from "react";
+import { forwardRef, type VideoHTMLAttributes } from "react";
 
-export const VideoPlayer = forwardRef<HTMLVideoElement, { src: string; className?: string }>(
-  function VideoPlayer({ src, className }, ref) {
-    return (
-      <video
-        ref={ref}
-        src={src}
-        controls
-        className={className ?? "h-full w-full rounded-lg bg-black object-contain"}
-      />
-    );
-  }
-);
+type VideoPlayerProps = { src: string; className?: string } & Omit<
+  VideoHTMLAttributes<HTMLVideoElement>,
+  "src" | "className" | "controls"
+>;
+
+export const VideoPlayer = forwardRef<HTMLVideoElement, VideoPlayerProps>(function VideoPlayer(
+  { src, className, ...rest },
+  ref
+) {
+  return (
+    <video
+      ref={ref}
+      src={src}
+      controls
+      className={className ?? "h-full w-full rounded-lg bg-black object-contain"}
+      {...rest}
+    />
+  );
+});

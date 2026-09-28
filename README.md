@@ -118,8 +118,9 @@ npx tsc --noEmit # type-check
       /analyze-captions     caption chunking + keyword highlighting (full or highlights-only regeneration)
       /captions/[id]        manual per-caption text/highlight edits
       /render               (Phase 7)
-  /components               VideoUploader, VideoPlayer, ProjectCard, CaptionEditor, ...
-  /lib                      config, prisma client, presets, serializers
+  /components               VideoUploader, VideoPlayer, ProjectCard, CaptionEditor,
+                             CaptionOverlay, CaptionSettingsPanel, Timeline, ColorPicker, ...
+  /lib                      config, prisma client, presets, serializers, captionStyle (timing/position/style helpers)
   /services
     /video                  ffmpeg metadata/thumbnail/audio extraction
     /transcription          OpenAIWhisperProvider + MockTranscriptionProvider behind TranscriptionProvider
@@ -166,6 +167,27 @@ list).
   edited text untouched, and the no-transcript error path checked.
   Caption merge/split are not implemented yet (tracked as future work,
   per the spec's own phase boundaries).
+- **Phase 4 (Video Caption Preview) — complete and tested**: the editor
+  overlays the currently-active caption on the video preview in real time
+  (synced to actual `<video>` playback via `timeupdate`), scaled correctly
+  for the preview's rendered size against the canonical 1080px-wide canvas
+  the style settings are authored against. The full caption settings panel
+  is wired to live PATCH-based autosave (debounced, so dragging a slider
+  doesn't spam the API): presets, font family/weight/size, alignment, all
+  7 position presets, text/highlight color pickers, stroke, shadow,
+  background, text case, and a toggleable safe-area guide. An "active word"
+  mode does real-time karaoke-style word-by-word highlighting driven by
+  word-level timestamps, independent of the AI-selected keyword highlight.
+  A visual timeline renders proportional caption blocks with a live
+  playhead and click-to-seek (on a block or anywhere on the bar). Verified:
+  the active-caption/active-word timing functions unit-tested directly
+  (correct caption/word selection, and correctly returns nothing in the
+  gap between two captions) and preset/style changes confirmed to persist
+  via the PATCH API and survive a fresh reload — the animated-transition
+  layer itself (Phase 5) isn't built yet, so preview changes are instant,
+  not animated. Caption animations beyond static positioning (fade, pop,
+  slide, bounce, etc.) land in Phase 5.
 
-Remaining phases (animated preview, Remotion rendering, export, polish)
-are tracked in the codebase's `/api` route stubs and service folders.
+Remaining phases (animation templates, Remotion rendering wiring, export,
+polish) are tracked in the codebase's `/api` route stubs and service
+folders.
