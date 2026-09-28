@@ -115,14 +115,15 @@ npx tsc --noEmit # type-check
       /projects             list/create/get/update/delete/duplicate
       /media/[...path]      streams files out of /storage (range requests supported)
       /transcribe           word-level transcription (OpenAI Whisper, mock fallback)
-      /analyze-captions     (Phase 3)
+      /analyze-captions     caption chunking + keyword highlighting (full or highlights-only regeneration)
+      /captions/[id]        manual per-caption text/highlight edits
       /render               (Phase 7)
-  /components               VideoUploader, VideoPlayer, ProjectCard, ...
+  /components               VideoUploader, VideoPlayer, ProjectCard, CaptionEditor, ...
   /lib                      config, prisma client, presets, serializers
   /services
     /video                  ffmpeg metadata/thumbnail/audio extraction
     /transcription          OpenAIWhisperProvider + MockTranscriptionProvider behind TranscriptionProvider
-    /captions               (Phase 3)
+    /captions               chunking.ts + highlighting.ts (rule-based) and an OpenAI-backed provider behind CaptionIntelligenceProvider
     /ai                     AI prompts/providers
     /render                 (Phase 7)
   /types                    shared domain types + provider interfaces
@@ -148,7 +149,23 @@ list).
   exposes a Transcribe/Retry action and displays the transcript. Verified
   end-to-end against a real uploaded file, including the no-audio-path
   fallback and error paths (missing project, missing video).
+- **Phase 3 (Caption Engine) — complete and tested**: transcripts are
+  chunked into short, punctuation/pause-aware caption groups (2-7 words by
+  default, configurable), with at most one important word or phrase
+  highlighted per caption (numbers/time periods/money first, then
+  emotional/business keywords) — via OpenAI when `OPENAI_API_KEY` is set,
+  otherwise a deterministic rule-based engine
+  (`src/services/captions/chunking.ts` + `highlighting.ts`) so the whole
+  pipeline works without an API key. Caption generation runs automatically
+  after transcription; the editor lets you regenerate chunks (with a
+  destructive-edit warning) or regenerate highlights only (preserves
+  manually edited text), edit any caption's text inline, and click a word
+  to toggle its highlight. Verified end-to-end: chunk quality traced by
+  hand against the raw mock transcript, text edits and highlight toggles
+  confirmed to persist, highlights-only regeneration confirmed to leave
+  edited text untouched, and the no-transcript error path checked.
+  Caption merge/split are not implemented yet (tracked as future work,
+  per the spec's own phase boundaries).
 
-Remaining phases (caption chunking/highlighting, animated preview,
-Remotion rendering, export, polish) are tracked in the codebase's `/api`
-route stubs and service folders.
+Remaining phases (animated preview, Remotion rendering, export, polish)
+are tracked in the codebase's `/api` route stubs and service folders.

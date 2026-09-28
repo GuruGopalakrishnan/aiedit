@@ -16,7 +16,7 @@ export type CaptionGroup = {
   end: number;
   text: string;
   words: TranscriptWord[];
-  highlightedWords: string[]; // exact text of highlighted word(s)/phrase(s) within `text`
+  highlightedWords: string[]; // TranscriptWord.id values from `words` marked for highlight emphasis
 };
 
 export type CaptionPosition =

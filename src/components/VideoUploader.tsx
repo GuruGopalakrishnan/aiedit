@@ -47,6 +47,16 @@ export function VideoUploader() {
         if (!transcribeRes.ok) {
           // Non-fatal: land in the editor so the user can retry transcription there.
           console.error("Transcription failed:", (await transcribeRes.json()).error);
+        } else {
+          setProgressLabel("Preparing captions…");
+          const captionsRes = await fetch("/api/analyze-captions", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ projectId }),
+          });
+          if (!captionsRes.ok) {
+            console.error("Caption generation failed:", (await captionsRes.json()).error);
+          }
         }
 
         setProgressLabel("Opening editor…");

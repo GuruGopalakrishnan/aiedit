@@ -3,8 +3,9 @@
 import { useCallback, useEffect, useState } from "react";
 import { useParams } from "next/navigation";
 import { VideoPlayer } from "@/components/VideoPlayer";
+import { CaptionEditor } from "@/components/CaptionEditor";
 import { toMediaUrl } from "@/lib/mediaUrl";
-import type { Project } from "@/types";
+import type { CaptionGroup, Project } from "@/types";
 
 function formatDuration(seconds: number) {
   const m = Math.floor(seconds / 60);
@@ -27,6 +28,8 @@ export default function EditorPage() {
   const [error, setError] = useState<string | null>(null);
   const [transcribeError, setTranscribeError] = useState<string | null>(null);
   const [transcribing, setTranscribing] = useState(false);
+  const [captionError, setCaptionError] = useState<string | null>(null);
+  const [generatingCaptions, setGeneratingCaptions] = useState(false);
 
   const load = useCallback(async () => {
     try {
@@ -63,6 +66,42 @@ export default function EditorPage() {
     }
   }, [projectId, load]);
 
+  const runCaptionAnalysis = useCallback(
+    async (mode: "full" | "highlights") => {
+      if (
+        mode === "full" &&
+        project &&
+        project.captions.length > 0 &&
+        !confirm("This replaces the current caption chunks and any manual edits. Continue?")
+      ) {
+        return;
+      }
+      setGeneratingCaptions(true);
+      setCaptionError(null);
+      try {
+        const res = await fetch("/api/analyze-captions", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ projectId, mode }),
+        });
+        const data = await res.json();
+        if (!res.ok) throw new Error(data.error || "Caption generation failed.");
+        setProject(data.project);
+      } catch (e) {
+        setCaptionError(e instanceof Error ? e.message : "Caption generation failed unexpectedly.");
+      } finally {
+        setGeneratingCaptions(false);
+      }
+    },
+    [projectId, project]
+  );
+
+  const updateCaptionLocally = useCallback((updated: CaptionGroup) => {
+    setProject((prev) =>
+      prev ? { ...prev, captions: prev.captions.map((c) => (c.id === updated.id ? updated : c)) } : prev
+    );
+  }, []);
+
   if (error) {
     return (
       <main className="flex min-h-screen items-center justify-center bg-neutral-950 text-red-400">
@@ -81,6 +120,7 @@ export default function EditorPage() {
 
   const videoUrl = toMediaUrl(project.video?.originalPath);
   const hasTranscript = project.transcript.length > 0;
+  const hasCaptions = project.captions.length > 0;
   const showTranscribeAction =
     project.video && !transcribing && (project.status === "draft" || project.status === "failed" || !hasTranscript);
 
@@ -110,8 +150,8 @@ export default function EditorPage() {
         <aside className="w-full border-t border-white/10 bg-neutral-900 p-5 lg:w-80 lg:border-l lg:border-t-0">
           <h2 className="text-sm font-semibold text-neutral-300">Caption Settings</h2>
           <p className="mt-2 text-xs text-neutral-500">
-            Presets, fonts, colors, positioning, and animations will appear here once the caption
-            engine (Phase 3) is wired up.
+            Presets, fonts, colors, positioning, and animations will appear here once the animated
+            preview (Phase 4/5) is wired up.
           </p>
 
           {project.video && (
@@ -129,31 +169,65 @@ export default function EditorPage() {
       <section className="border-t border-white/10 bg-neutral-900 p-4">
         <h2 className="text-sm font-semibold text-neutral-300">Timeline</h2>
         <p className="mt-2 text-xs text-neutral-500">
-          Caption blocks will appear here after the caption engine (Phase 3) runs.
+          {hasCaptions
+            ? `${project.captions.length} caption block${project.captions.length === 1 ? "" : "s"}. A visual timeline with click-to-seek lands with the animated preview (Phase 4).`
+            : "Caption blocks will appear here once captions are generated."}
         </p>
       </section>
 
       <section className="border-t border-white/10 bg-neutral-950 p-4">
         <div className="flex items-center justify-between">
-          <h2 className="text-sm font-semibold text-neutral-300">Transcript</h2>
-          {showTranscribeAction && (
-            <button
-              onClick={runTranscription}
-              className="rounded-lg bg-white px-3 py-1.5 text-xs font-medium text-black hover:bg-neutral-200"
-            >
-              {project.status === "failed" ? "Retry Transcription" : "Transcribe"}
-            </button>
-          )}
-          {transcribing && <p className="text-xs text-neutral-400">Transcribing speech…</p>}
+          <h2 className="text-sm font-semibold text-neutral-300">Transcript &amp; Captions</h2>
+          <div className="flex items-center gap-2">
+            {showTranscribeAction && (
+              <button
+                onClick={runTranscription}
+                className="rounded-lg bg-white px-3 py-1.5 text-xs font-medium text-black hover:bg-neutral-200"
+              >
+                {project.status === "failed" ? "Retry Transcription" : "Transcribe"}
+              </button>
+            )}
+            {hasTranscript && !generatingCaptions && (
+              <>
+                <button
+                  onClick={() => runCaptionAnalysis("full")}
+                  className="rounded-lg bg-white px-3 py-1.5 text-xs font-medium text-black hover:bg-neutral-200"
+                >
+                  {hasCaptions ? "Regenerate Captions" : "Generate Captions"}
+                </button>
+                {hasCaptions && (
+                  <button
+                    onClick={() => runCaptionAnalysis("highlights")}
+                    className="rounded-lg border border-white/20 px-3 py-1.5 text-xs font-medium text-white hover:bg-white/10"
+                  >
+                    Regenerate Highlights
+                  </button>
+                )}
+              </>
+            )}
+          </div>
         </div>
 
+        {transcribing && <p className="mt-2 text-xs text-neutral-400">Transcribing speech…</p>}
+        {generatingCaptions && <p className="mt-2 text-xs text-neutral-400">Preparing captions…</p>}
         {transcribeError && <p className="mt-2 text-xs text-red-400">{transcribeError}</p>}
+        {captionError && <p className="mt-2 text-xs text-red-400">{captionError}</p>}
 
-        <p className="mt-2 text-sm leading-relaxed text-neutral-200">
-          {hasTranscript
-            ? project.transcript.map((w) => w.text).join(" ")
-            : !transcribing && "No transcript yet."}
-        </p>
+        {hasTranscript && !hasCaptions && (
+          <p className="mt-3 text-sm leading-relaxed text-neutral-400">
+            {project.transcript.map((w) => w.text).join(" ")}
+          </p>
+        )}
+
+        {!hasTranscript && !transcribing && (
+          <p className="mt-2 text-sm text-neutral-500">No transcript yet.</p>
+        )}
+
+        {hasCaptions && (
+          <div className="mt-3">
+            <CaptionEditor captions={project.captions} onCaptionChange={updateCaptionLocally} />
+          </div>
+        )}
       </section>
     </main>
   );
