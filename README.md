@@ -114,14 +114,14 @@ npx tsc --noEmit # type-check
     /api
       /projects             list/create/get/update/delete/duplicate
       /media/[...path]      streams files out of /storage (range requests supported)
-      /transcribe           (Phase 2)
+      /transcribe           word-level transcription (OpenAI Whisper, mock fallback)
       /analyze-captions     (Phase 3)
       /render               (Phase 7)
   /components               VideoUploader, VideoPlayer, ProjectCard, ...
   /lib                      config, prisma client, presets, serializers
   /services
     /video                  ffmpeg metadata/thumbnail/audio extraction
-    /transcription          (Phase 2)
+    /transcription          OpenAIWhisperProvider + MockTranscriptionProvider behind TranscriptionProvider
     /captions               (Phase 3)
     /ai                     AI prompts/providers
     /render                 (Phase 7)
@@ -135,9 +135,20 @@ npx tsc --noEmit # type-check
 ## Project status
 
 Build is being delivered in phases (see the original spec for the full
-list). **Phase 1 (Foundation) is complete and tested**: project dashboard,
-project creation, drag-and-drop video upload, metadata extraction (duration/
-resolution/size/thumbnail), and video preview in the editor shell all work
-end-to-end. Remaining phases (transcription, caption engine, animated
-preview, Remotion rendering, export, polish) are tracked in the codebase's
-`/api` route stubs and service folders.
+list).
+
+- **Phase 1 (Foundation) — complete and tested**: project dashboard,
+  project creation, drag-and-drop video upload, metadata extraction
+  (duration/resolution/size/thumbnail), and video preview in the editor
+  shell all work end-to-end.
+- **Phase 2 (Transcription) — complete and tested**: audio is transcribed
+  automatically right after upload (word-level timestamps via OpenAI
+  Whisper, or a deterministic mock provider when `OPENAI_API_KEY` is
+  unset so the pipeline stays testable without an API key). The editor
+  exposes a Transcribe/Retry action and displays the transcript. Verified
+  end-to-end against a real uploaded file, including the no-audio-path
+  fallback and error paths (missing project, missing video).
+
+Remaining phases (caption chunking/highlighting, animated preview,
+Remotion rendering, export, polish) are tracked in the codebase's `/api`
+route stubs and service folders.

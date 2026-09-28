@@ -35,8 +35,22 @@ export function VideoUploader() {
         if (!res.ok) {
           throw new Error(data.error || "Upload failed.");
         }
+
+        const projectId = data.project.id as string;
+
+        setProgressLabel("Transcribing speech…");
+        const transcribeRes = await fetch("/api/transcribe", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ projectId }),
+        });
+        if (!transcribeRes.ok) {
+          // Non-fatal: land in the editor so the user can retry transcription there.
+          console.error("Transcription failed:", (await transcribeRes.json()).error);
+        }
+
         setProgressLabel("Opening editor…");
-        router.push(`/editor/${data.project.id}`);
+        router.push(`/editor/${projectId}`);
       } catch (e) {
         setError(e instanceof Error ? e.message : "Upload failed unexpectedly.");
         setUploading(false);

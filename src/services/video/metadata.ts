@@ -43,6 +43,18 @@ export function probeVideo(filePath: string): Promise<ExtractedMetadata> {
   });
 }
 
+export function getAudioDuration(filePath: string): Promise<number> {
+  return new Promise((resolve, reject) => {
+    ffmpeg.ffprobe(filePath, (err, data) => {
+      if (err) {
+        reject(new Error(`FFprobe failed to read audio duration: ${err.message}`));
+        return;
+      }
+      resolve(data.format.duration || 0);
+    });
+  });
+}
+
 export function resolveAspectRatio(width: number, height: number): AspectRatio {
   const ratio = width / height;
   if (Math.abs(ratio - 9 / 16) < 0.08) return "9:16";
