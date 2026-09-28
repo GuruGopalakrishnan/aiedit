@@ -1,7 +1,9 @@
 import { NextRequest, NextResponse } from "next/server";
 import fs from "fs/promises";
+import path from "path";
 import { randomUUID } from "crypto";
 import { prisma } from "@/lib/prisma";
+import { STORAGE_DIRS } from "@/lib/config";
 import { serializeProject } from "@/lib/serializers";
 
 type Params = { params: Promise<{ id: string }> };
@@ -42,7 +44,7 @@ export async function PATCH(request: NextRequest, { params }: Params) {
 
 export async function DELETE(_request: NextRequest, { params }: Params) {
   const { id } = await params;
-  const project = await prisma.project.findUnique({ where: { id }, include: { video: true } });
+  const project = await prisma.project.findUnique({ where: { id }, include: { video: true, renderJobs: true } });
   if (!project) {
     return NextResponse.json({ error: "Project not found." }, { status: 404 });
   }
@@ -51,6 +53,9 @@ export async function DELETE(_request: NextRequest, { params }: Params) {
     await fs.unlink(project.video.originalPath).catch(() => {});
     if (project.video.audioPath) await fs.unlink(project.video.audioPath).catch(() => {});
     if (project.video.thumbnailPath) await fs.unlink(project.video.thumbnailPath).catch(() => {});
+  }
+  for (const job of project.renderJobs) {
+    if (job.outputPath) await fs.unlink(job.outputPath).catch(() => {});
   }
 
   await prisma.project.delete({ where: { id } });
@@ -74,6 +79,21 @@ export async function POST(request: NextRequest, { params }: Params) {
   }
 
   const newId = randomUUID();
+
+  // Copy the underlying files rather than pointing the new project at the
+  // source's paths -- otherwise deleting either project (DELETE unlinks by
+  // path) would break the other's video/audio/thumbnail.
+  const copyFile = async (sourcePath: string | null, dir: string): Promise<string | undefined> => {
+    if (!sourcePath) return undefined;
+    const destPath = path.join(dir, `${newId}${path.extname(sourcePath)}`);
+    await fs.copyFile(sourcePath, destPath);
+    return destPath;
+  };
+
+  const duplicatedOriginalPath = source.video ? await copyFile(source.video.originalPath, STORAGE_DIRS.uploads) : undefined;
+  const duplicatedAudioPath = source.video ? await copyFile(source.video.audioPath, STORAGE_DIRS.audio) : undefined;
+  const duplicatedThumbnailPath = source.video ? await copyFile(source.video.thumbnailPath, STORAGE_DIRS.thumbnails) : undefined;
+
   const duplicated = await prisma.project.create({
     data: {
       id: newId,
@@ -81,21 +101,22 @@ export async function POST(request: NextRequest, { params }: Params) {
       status: source.status,
       captionSettings: source.captionSettings,
       styleSettings: source.styleSettings,
-      video: source.video
-        ? {
-            create: {
-              filename: source.video.filename,
-              originalPath: source.video.originalPath,
-              audioPath: source.video.audioPath,
-              duration: source.video.duration,
-              width: source.video.width,
-              height: source.video.height,
-              fileSize: source.video.fileSize,
-              thumbnailPath: source.video.thumbnailPath,
-              aspectRatio: source.video.aspectRatio,
-            },
-          }
-        : undefined,
+      video:
+        source.video && duplicatedOriginalPath
+          ? {
+              create: {
+                filename: source.video.filename,
+                originalPath: duplicatedOriginalPath,
+                audioPath: duplicatedAudioPath,
+                duration: source.video.duration,
+                width: source.video.width,
+                height: source.video.height,
+                fileSize: source.video.fileSize,
+                thumbnailPath: duplicatedThumbnailPath,
+                aspectRatio: source.video.aspectRatio,
+              },
+            }
+          : undefined,
       transcript: source.transcript
         ? { create: { words: source.transcript.words, rawText: source.transcript.rawText, language: source.transcript.language } }
         : undefined,

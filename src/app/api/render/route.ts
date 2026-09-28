@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
+import fs from "fs/promises";
 import { prisma } from "@/lib/prisma";
 import { toMediaUrl } from "@/lib/mediaUrl";
 import { renderProject } from "@/services/render/renderProject";
@@ -39,6 +40,18 @@ export async function POST(request: NextRequest) {
   const job = await prisma.renderJob.create({
     data: { projectId, status: "QUEUED", progress: 0, quality },
   });
+
+  // Every render creates a new output file; without this, re-exporting the same
+  // project repeatedly would leave old, now-superseded MP4s in storage forever.
+  const staleJobs = await prisma.renderJob.findMany({
+    where: { projectId, id: { not: job.id }, status: { in: ["COMPLETED", "FAILED"] } },
+  });
+  await Promise.all(
+    staleJobs.map(async (stale) => {
+      if (stale.outputPath) await fs.unlink(stale.outputPath).catch(() => {});
+      await prisma.renderJob.delete({ where: { id: stale.id } }).catch(() => {});
+    })
+  );
 
   const captions: CaptionGroup[] = project.captions.map((c) => ({
     id: c.id,

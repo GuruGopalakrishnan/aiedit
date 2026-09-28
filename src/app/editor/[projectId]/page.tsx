@@ -163,15 +163,15 @@ export default function EditorPage() {
 
   return (
     <main className="flex min-h-screen flex-col bg-neutral-950 text-white">
-      <header className="flex items-center justify-between border-b border-white/10 px-6 py-3">
-        <div>
-          <p className="text-sm font-medium">{project.name}</p>
+      <header className="flex items-center justify-between gap-3 border-b border-white/10 px-4 py-3 sm:px-6">
+        <div className="min-w-0">
+          <p className="truncate text-sm font-medium">{project.name}</p>
           <p className="text-xs text-neutral-500">{STATUS_LABEL[project.status]}</p>
         </div>
         <button
           onClick={() => setShowExportModal(true)}
           disabled={!hasCaptions}
-          className="rounded-lg bg-white px-4 py-2 text-sm font-medium text-black hover:bg-neutral-200 disabled:cursor-not-allowed disabled:opacity-40"
+          className="shrink-0 rounded-lg bg-white px-3 py-2 text-sm font-medium text-black hover:bg-neutral-200 disabled:cursor-not-allowed disabled:opacity-40 sm:px-4"
         >
           Export Video
         </button>
@@ -183,7 +183,7 @@ export default function EditorPage() {
         <section className="flex flex-1 items-center justify-center bg-black p-6">
           {videoUrl && project.video ? (
             <div
-              className="relative max-h-[70vh] w-auto"
+              className="relative max-h-[70vh] w-auto max-w-full"
               style={{ aspectRatio: `${project.video.width} / ${project.video.height}` }}
             >
               <VideoPlayer

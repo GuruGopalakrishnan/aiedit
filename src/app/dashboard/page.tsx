@@ -42,10 +42,10 @@ export default function DashboardPage() {
   };
 
   return (
-    <main className="min-h-screen bg-neutral-950 px-8 py-10 text-white">
+    <main className="min-h-screen bg-neutral-950 px-4 py-8 text-white sm:px-8 sm:py-10">
       <div className="mx-auto max-w-6xl">
-        <div className="flex items-center justify-between">
-          <h1 className="text-2xl font-semibold">Your Projects</h1>
+        <div className="flex flex-wrap items-center justify-between gap-3">
+          <h1 className="text-xl font-semibold sm:text-2xl">Your Projects</h1>
           <button
             onClick={() => setShowUploader((v) => !v)}
             className="rounded-lg bg-white px-4 py-2 text-sm font-medium text-black hover:bg-neutral-200"

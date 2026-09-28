@@ -308,7 +308,28 @@ list).
   output files aren't auto-deleted yet (tracked as Phase 8 polish, along
   with a proper render-queue worker instead of the current in-process call).
 
-Remaining: Phase 8 (polish — mobile responsiveness, autosave polish,
-cleanup of old render/upload files) is tracked loosely; there's no
-dedicated stub for it since it's cross-cutting rather than a new
-subsystem.
+- **Phase 8 (Polish) — in progress**: fixed two real correctness bugs found
+  by re-reading the delete/duplicate code paths rather than by a specific
+  test failure. **Duplicate didn't actually copy the video/audio/thumbnail
+  files** — it pointed the new project at the *same* paths as the source,
+  so deleting either project (DELETE unlinks by path) silently broke the
+  other's media. Verified end-to-end: uploaded a project, duplicated it,
+  confirmed two distinct files existed on disk, deleted the original, and
+  confirmed the duplicate's video was still there and still servable —
+  exactly the scenario that used to break. Also, **render output files
+  were never cleaned up**: deleting a project left its render(s) orphaned
+  in `/storage/renders` forever (DELETE now unlinks them), and re-exporting
+  the same project repeatedly left every prior render file on disk forever
+  too (POST /api/render now deletes the project's previous completed/failed
+  render file and job row before starting a new one) — verified by
+  rendering the same project twice and confirming only the newest file
+  survives each time. Also did a pass on obvious mobile-layout gaps (the
+  video preview could overflow its container width on narrow screens since
+  its sizing was height-driven only; the editor header could get cramped
+  with a long project name) — these were fixed by code review, not by
+  actually viewing the app at a mobile viewport, since no browser tool is
+  available in this environment.
+
+Not yet done: a proper render-queue worker instead of the current
+in-process render call, and a full mobile-viewport pass (only the specific
+gaps above were addressed, not a systematic audit).
