@@ -102,10 +102,17 @@ from `tsconfig.json` on its own.
 
 ## Rendering / export
 
-Renders run as an async job (`RenderJob`: `QUEUED → PROCESSING → COMPLETED
-/ FAILED`) so the UI never blocks on a render. For local development a
-simple in-process worker is used; the job model is intentionally shaped so
-Redis/BullMQ can replace it later without changing the API surface.
+`POST /api/render` creates a `RenderJob` (`QUEUED → PROCESSING → COMPLETED
+/ FAILED`) and returns its id immediately (202) rather than blocking on the
+render; the editor's Export modal polls `GET /api/render/:jobId` every
+second for status/progress and shows a download link once complete. The
+video is fetched by the Remotion renderer from this app's own
+`/api/media/...` route (never a local `file://` path — that fails at render
+time), and quality (`draft`/`standard`/`high`) maps to an H.264 CRF value.
+For local development the render itself runs in-process
+(`src/services/render/renderProject.ts`) rather than on a separate worker;
+the job model is intentionally shaped so Redis/BullMQ can replace that
+in-process call later without changing the API surface.
 
 ## Development server
 
@@ -124,8 +131,12 @@ npx tsc --noEmit # type-check
 - **Upload rejected**: check the file extension (`.mp4`, `.mov`, `.webm`
   only) and the configured size/duration limits in `.env`.
 - **Remotion render fails with `Module not found: Can't resolve '@/lib/...'`**:
-  `remotion.config.ts`'s webpack alias override is missing or was reverted —
-  Remotion's bundler doesn't read `tsconfig.json` paths on its own.
+  Remotion's bundler doesn't read `tsconfig.json` paths on its own, and
+  `remotion.config.ts`'s webpack override only applies to the `remotion`
+  CLI (`remotion:studio`/`remotion:render`) — a programmatic `bundle()`
+  call, like `src/services/render/renderProject.ts` makes for the real
+  export endpoint, needs the same `webpackOverride` passed directly to
+  `bundle()`, not just present in `remotion.config.ts`.
 - **Remotion render fails with `Can't resolve 'path'` (or another Node
   built-in) from a `src/lib/*` file**: some file imported by the composition
   pulls in a Node-only module transitively (Remotion's bundle runs in
@@ -136,6 +147,17 @@ npx tsc --noEmit # type-check
   http:// or https://`**: `videoSrc` was given a local filesystem path.
   Use an `http(s)://` URL the renderer can fetch — the running app's own
   `/api/media/...` route works for this.
+- **`npm run build` fails inside `node_modules/remotion/...` or
+  `@remotion/renderer`/`@remotion/bundler`**: add the missing package to
+  `serverExternalPackages` in `next.config.ts` (same category of fix as the
+  ffmpeg one above) — these packages have native/Node-only internals Next
+  shouldn't try to bundle for the client.
+- **Render fails with `No frame found at position ...` from the
+  compositor**: `durationInFrames` (seconds × fps) rounded up past the
+  source video's actual last decodable frame. `remotion/Root.tsx`'s
+  `calculateMetadata` already subtracts a 1-frame safety margin for this —
+  if it recurs, the margin may need to be larger for a particular source
+  file.
 - **Empty dashboard after upload**: check the terminal running `npm run dev`
   for the actual FFmpeg/transcription error — the API always returns a
   specific error message rather than a generic failure.
@@ -153,16 +175,16 @@ npx tsc --noEmit # type-check
       /transcribe           word-level transcription (OpenAI Whisper, mock fallback)
       /analyze-captions     caption chunking + keyword highlighting (full or highlights-only regeneration)
       /captions/[id]        manual per-caption text/highlight edits
-      /render               (Phase 7)
+      /render               POST creates a RenderJob and starts rendering; GET /:jobId polls status
   /components               VideoUploader, VideoPlayer, ProjectCard, CaptionEditor,
-                             CaptionOverlay, CaptionSettingsPanel, Timeline, ColorPicker, ...
+                             CaptionOverlay, CaptionSettingsPanel, Timeline, ColorPicker, ExportModal, ...
   /lib                      config, prisma client, presets, serializers, captionStyle (timing/position/style helpers)
   /services
     /video                  ffmpeg metadata/thumbnail/audio extraction
     /transcription          OpenAIWhisperProvider + MockTranscriptionProvider behind TranscriptionProvider
     /captions               chunking.ts + highlighting.ts (rule-based) and an OpenAI-backed provider behind CaptionIntelligenceProvider
     /ai                     AI prompts/providers
-    /render                 (Phase 7)
+    /render                 renderProject.ts -- bundles + renders the Remotion composition to MP4
   /types                    shared domain types + provider interfaces
 /remotion                   final-render composition (CaptionedVideo, Root, index) + frame-based animations.ts
 /prisma                     schema + migrations
@@ -261,6 +283,32 @@ list).
   build/type-check alone would have missed, which is why the extra step of
   actually rendering something was worth taking.
 
-Remaining phases (Phase 7: async render job + MP4 download endpoint, Phase
-8: polish) are tracked in the codebase's `/api` route stubs and service
-folders.
+- **Phase 7 (Export) — complete and tested**: `POST /api/render` creates a
+  `RenderJob` and returns its id immediately (202) instead of blocking on
+  the render; `GET /api/render/:jobId` polls status/progress. The editor's
+  new Export modal (quality picker → progress bar → download link) polls
+  that endpoint every second. Quality (draft/standard/high) maps to an
+  H.264 CRF value. Verified by actually running the full pipeline through
+  the real HTTP endpoints (not the CLI, and not just build/lint) — upload,
+  transcribe, generate captions, `POST /api/render`, poll to `COMPLETED`,
+  download via the forced-attachment URL, and confirm with `ffprobe` and an
+  extracted frame that the output is a correct, correctly-captioned MP4.
+  Also checked the error paths: missing project, missing captions,
+  unknown job id. Three real bugs surfaced by this — none of them caught
+  by `tsc`/`next build`/`eslint`, all only found by actually rendering:
+  (1) `remotion.config.ts`'s webpack alias override only applies to the
+  Remotion CLI, not a programmatic `bundle()` call, so the render service
+  needed the same override passed directly; (2) `next build` tried to
+  bundle `@remotion/renderer`/`@remotion/bundler` for the client and failed
+  on their Node-only internals, fixed by adding them to
+  `serverExternalPackages`; (3) the render failed partway through with
+  "No frame found at position ..." because `durationInFrames` (computed as
+  seconds × fps) rounded up past the source video's actual last decodable
+  frame — fixed with a 1-frame safety margin in `calculateMetadata`. Render
+  output files aren't auto-deleted yet (tracked as Phase 8 polish, along
+  with a proper render-queue worker instead of the current in-process call).
+
+Remaining: Phase 8 (polish — mobile responsiveness, autosave polish,
+cleanup of old render/upload files) is tracked loosely; there's no
+dedicated stub for it since it's cross-cutting rather than a new
+subsystem.

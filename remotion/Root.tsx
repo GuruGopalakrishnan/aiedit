@@ -26,7 +26,10 @@ export function RemotionRoot() {
         fps: props.fps,
         width: props.width,
         height: props.height,
-        durationInFrames: Math.max(1, Math.round(props.durationInSeconds * props.fps)),
+        // -1 frame safety margin: durationInSeconds*fps often rounds up past the
+        // source video's actual last decodable frame, which OffthreadVideo then
+        // fails to read ("No frame found at position ..."). See README troubleshooting.
+        durationInFrames: Math.max(1, Math.round(props.durationInSeconds * props.fps) - 1),
       })}
     />
   );

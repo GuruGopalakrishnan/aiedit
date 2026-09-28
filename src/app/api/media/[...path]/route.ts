@@ -31,6 +31,9 @@ export async function GET(request: NextRequest, { params }: Params) {
   const stat = fs.statSync(requested);
   const ext = path.extname(requested).toLowerCase();
   const contentType = MIME_TYPES[ext] || "application/octet-stream";
+  const contentDisposition = request.nextUrl.searchParams.has("download")
+    ? `attachment; filename="${path.basename(requested)}"`
+    : undefined;
 
   const range = request.headers.get("range");
   if (range) {
@@ -56,6 +59,7 @@ export async function GET(request: NextRequest, { params }: Params) {
         "Accept-Ranges": "bytes",
         "Content-Length": String(chunkSize),
         "Content-Type": contentType,
+        ...(contentDisposition ? { "Content-Disposition": contentDisposition } : {}),
       },
     });
   }
@@ -77,6 +81,7 @@ export async function GET(request: NextRequest, { params }: Params) {
       "Content-Type": contentType,
       "Content-Length": String(stat.size),
       "Accept-Ranges": "bytes",
+      ...(contentDisposition ? { "Content-Disposition": contentDisposition } : {}),
     },
   });
 }

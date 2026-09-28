@@ -6,6 +6,7 @@ import { VideoPlayer } from "@/components/VideoPlayer";
 import { CaptionEditor } from "@/components/CaptionEditor";
 import { CaptionOverlay } from "@/components/CaptionOverlay";
 import { CaptionSettingsPanel } from "@/components/CaptionSettingsPanel";
+import { ExportModal } from "@/components/ExportModal";
 import { Timeline } from "@/components/Timeline";
 import { findActiveCaption } from "@/lib/captionStyle";
 import { toMediaUrl } from "@/lib/mediaUrl";
@@ -38,6 +39,7 @@ export default function EditorPage() {
   const [generatingCaptions, setGeneratingCaptions] = useState(false);
   const [currentTime, setCurrentTime] = useState(0);
   const [showSafeArea, setShowSafeArea] = useState(false);
+  const [showExportModal, setShowExportModal] = useState(false);
 
   const load = useCallback(async () => {
     try {
@@ -166,10 +168,16 @@ export default function EditorPage() {
           <p className="text-sm font-medium">{project.name}</p>
           <p className="text-xs text-neutral-500">{STATUS_LABEL[project.status]}</p>
         </div>
-        <button className="rounded-lg bg-white px-4 py-2 text-sm font-medium text-black hover:bg-neutral-200">
+        <button
+          onClick={() => setShowExportModal(true)}
+          disabled={!hasCaptions}
+          className="rounded-lg bg-white px-4 py-2 text-sm font-medium text-black hover:bg-neutral-200 disabled:cursor-not-allowed disabled:opacity-40"
+        >
           Export Video
         </button>
       </header>
+
+      {showExportModal && <ExportModal projectId={project.id} onClose={() => setShowExportModal(false)} />}
 
       <div className="flex flex-1 flex-col lg:flex-row">
         <section className="flex flex-1 items-center justify-center bg-black p-6">
