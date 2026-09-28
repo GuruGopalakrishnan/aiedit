@@ -183,11 +183,25 @@ list).
   the active-caption/active-word timing functions unit-tested directly
   (correct caption/word selection, and correctly returns nothing in the
   gap between two captions) and preset/style changes confirmed to persist
-  via the PATCH API and survive a fresh reload — the animated-transition
-  layer itself (Phase 5) isn't built yet, so preview changes are instant,
-  not animated. Caption animations beyond static positioning (fade, pop,
-  slide, bounce, etc.) land in Phase 5.
+  via the PATCH API and survive a fresh reload — animated transitions
+  themselves shipped in Phase 5.
+- **Phase 5 (Animation System) — complete and tested**: all 7 templates
+  from the spec (Fade, Pop, Slide Up, Slide Left, Bounce, Scale, Word
+  Highlight) are implemented with [Motion](https://motion.dev) — the
+  caption block enters/exits with the selected template's variants as the
+  active caption changes (`AnimatePresence` keyed by caption id, see
+  `src/lib/captionAnimations.ts`), and every word independently animates
+  its color/scale when it becomes highlighted, whether that's the
+  AI-selected keyword (Phase 3) or, with "active word" mode on, the word
+  currently being spoken (karaoke-style). An Animation selector was added
+  to the caption settings panel, using the same debounced-PATCH autosave
+  as the rest of the style controls. Verified: tsc/build/eslint all clean,
+  and all 7 animation values round-tripped through the style PATCH API
+  end-to-end. The animations themselves (easing curves, spring bounce
+  feel) were reviewed by reading the Motion variant definitions rather
+  than watching them play, since no browser automation tool is available
+  in this environment — worth a quick look in the browser to confirm they
+  feel right, particularly the bounce/pop spring tuning.
 
-Remaining phases (animation templates, Remotion rendering wiring, export,
-polish) are tracked in the codebase's `/api` route stubs and service
-folders.
+Remaining phases (Remotion rendering wiring, MP4 export, polish) are
+tracked in the codebase's `/api` route stubs and service folders.

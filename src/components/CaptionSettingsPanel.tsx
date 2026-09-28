@@ -4,6 +4,7 @@ import { ColorPicker } from "@/components/ColorPicker";
 import { CAPTION_PRESETS } from "@/lib/presets";
 import type {
   BackgroundStyle,
+  CaptionAnimation,
   CaptionPosition,
   CaptionStyle,
   FontWeight,
@@ -18,6 +19,15 @@ const STROKES: StrokeWidth[] = ["none", "thin", "medium", "thick"];
 const BACKGROUNDS: BackgroundStyle[] = ["none", "solid", "semi-transparent"];
 const TEXT_CASES: TextCase[] = ["original", "uppercase", "lowercase", "titlecase"];
 const TEXT_ALIGNS: TextAlign[] = ["left", "center", "right"];
+const ANIMATIONS: { value: CaptionAnimation; label: string }[] = [
+  { value: "fade", label: "Fade" },
+  { value: "pop", label: "Pop" },
+  { value: "slide-up", label: "Slide Up" },
+  { value: "slide-left", label: "Slide Left" },
+  { value: "bounce", label: "Bounce" },
+  { value: "scale", label: "Scale" },
+  { value: "word-highlight", label: "Word Highlight" },
+];
 
 const POSITION_GRID: (CaptionPosition | null)[] = [
   "top-left", "top-center", "top-right",
@@ -101,6 +111,24 @@ export function CaptionSettingsPanel({
           />
           <span className="w-8 text-right font-mono">{style.fontSize}</span>
         </label>
+      </Section>
+
+      <Section title="Animation">
+        <div className="grid grid-cols-2 gap-1.5">
+          {ANIMATIONS.map((a) => (
+            <button
+              key={a.value}
+              onClick={() => onChange({ animation: a.value })}
+              className={`rounded border px-2 py-1 text-xs ${
+                style.animation === a.value
+                  ? "border-white bg-white/10 text-white"
+                  : "border-white/10 text-neutral-400"
+              }`}
+            >
+              {a.label}
+            </button>
+          ))}
+        </div>
       </Section>
 
       <Section title="Alignment">
