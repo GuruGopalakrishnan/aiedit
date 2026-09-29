@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import Link from "next/link";
 import { ProjectCard } from "@/components/ProjectCard";
 import { VideoUploader } from "@/components/VideoUploader";
 import type { Project } from "@/types";
@@ -46,12 +47,20 @@ export default function DashboardPage() {
       <div className="mx-auto max-w-6xl">
         <div className="flex flex-wrap items-center justify-between gap-3">
           <h1 className="text-xl font-semibold sm:text-2xl">Your Projects</h1>
-          <button
-            onClick={() => setShowUploader((v) => !v)}
-            className="rounded-lg bg-white px-4 py-2 text-sm font-medium text-black hover:bg-neutral-200"
-          >
-            + New Project
-          </button>
+          <div className="flex gap-2">
+            <Link
+              href="/create"
+              className="rounded-lg border border-white/20 px-4 py-2 text-sm font-medium text-white hover:bg-white/10"
+            >
+              Paste Transcript
+            </Link>
+            <button
+              onClick={() => setShowUploader((v) => !v)}
+              className="rounded-lg bg-white px-4 py-2 text-sm font-medium text-black hover:bg-neutral-200"
+            >
+              + New Project
+            </button>
+          </div>
         </div>
 
         {showUploader && (
