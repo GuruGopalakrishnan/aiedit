@@ -104,6 +104,7 @@ export function CaptionOverlay({
 
   const rotation = effectiveStyle.rotation ?? 0;
   const posPercent = effectiveStyle.positionPercent;
+  const isFullscreen = effectiveStyle.layout === "fullscreen";
 
   return (
     <div ref={containerRef} className="pointer-events-none absolute inset-0 overflow-hidden">
@@ -111,14 +112,29 @@ export function CaptionOverlay({
         <div className="absolute inset-0 border-y-[8%] border-x-[6%] border-dashed border-white/25" />
       )}
 
+      {/* Dims the video so the caption becomes the visual focus -- a text-only
+          stand-in for a B-roll cutaway, at a scene the user opts into. */}
+      {active && isFullscreen && (
+        <motion.div
+          key={`scrim-${active.id}`}
+          initial={{ opacity: 0 }}
+          animate={{ opacity: 0.8 }}
+          exit={{ opacity: 0 }}
+          transition={{ duration: 0.2 }}
+          className="absolute inset-0 bg-black"
+        />
+      )}
+
       <div
         className={
-          posPercent
-            ? "absolute flex max-w-[88%] flex-col"
-            : `absolute inset-0 flex flex-col p-[6%] pt-[8%] pb-[12%] ${positionToFlexClasses(effectiveStyle.position)}`
+          isFullscreen
+            ? "absolute inset-0 flex flex-col items-center justify-center p-[8%] text-center"
+            : posPercent
+              ? "absolute flex max-w-[88%] flex-col"
+              : `absolute inset-0 flex flex-col p-[6%] pt-[8%] pb-[12%] ${positionToFlexClasses(effectiveStyle.position)}`
         }
         style={
-          posPercent
+          !isFullscreen && posPercent
             ? {
                 left: `${posPercent.x}%`,
                 top: `${posPercent.y}%`,
@@ -131,7 +147,13 @@ export function CaptionOverlay({
         <AnimatePresence mode="sync">
           {active &&
             lines.map((line, lineIndex) => {
-              const fontSizeMultiplier = line.emphasized ? 1.55 : effectiveStyle.layout === "stacked" ? 0.82 : 1;
+              const fontSizeMultiplier = line.emphasized
+                ? 1.55
+                : effectiveStyle.layout === "stacked"
+                  ? 0.82
+                  : isFullscreen
+                    ? 1.35
+                    : 1;
               const lineVariants = withEnterDelay(variants, lineIndex * STAGGER_SECONDS);
 
               return (

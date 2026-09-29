@@ -27,6 +27,7 @@ const LAYOUTS: { value: CaptionLayout; label: string; hint: string }[] = [
   { value: "inline", label: "Inline", hint: "One block, all words together" },
   { value: "stacked", label: "Stacked", hint: "Short lines, emphasis gets its own line" },
   { value: "single-word", label: "Word Pop", hint: "One word at a time, synced to speech" },
+  { value: "fullscreen", label: "Text Card", hint: "Video dims, text fills the frame — a B-roll stand-in" },
 ];
 const STROKES: StrokeWidth[] = ["none", "thin", "medium", "thick"];
 const BACKGROUNDS: BackgroundStyle[] = ["none", "solid", "semi-transparent"];

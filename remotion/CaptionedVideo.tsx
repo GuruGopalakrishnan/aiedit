@@ -84,6 +84,10 @@ export function CaptionedVideo({ videoSrc, captions, style, showSafeArea }: Capt
   const staggerFrames = Math.max(1, Math.round(STAGGER_SECONDS * fps));
   const rotation = effectiveStyle.rotation ?? 0;
   const posPercent = effectiveStyle.positionPercent;
+  const isFullscreen = effectiveStyle.layout === "fullscreen";
+  const scrimOpacity = active && isFullscreen
+    ? getCaptionFrameStyle("fade", frame - captionStartFrame, captionEndFrame - frame, fps).opacity * 0.8
+    : 0;
 
   let lines: SceneLine[] = [];
   if (active) {
@@ -114,9 +118,24 @@ export function CaptionedVideo({ videoSrc, captions, style, showSafeArea }: Capt
         />
       )}
 
+      {/* Dims the video so the caption becomes the visual focus -- a text-only
+          stand-in for a B-roll cutaway, at a scene the user opts into. */}
+      {isFullscreen && <AbsoluteFill style={{ backgroundColor: "black", opacity: scrimOpacity }} />}
+
       <div
         style={
-          posPercent
+          isFullscreen
+            ? {
+                position: "absolute",
+                inset: 0,
+                display: "flex",
+                flexDirection: "column",
+                alignItems: "center",
+                justifyContent: "center",
+                textAlign: "center",
+                padding: "8%",
+              }
+            : posPercent
             ? {
                 position: "absolute",
                 left: `${posPercent.x}%`,
@@ -151,7 +170,13 @@ export function CaptionedVideo({ videoSrc, captions, style, showSafeArea }: Capt
               captionEndFrame - frame,
               fps
             );
-            const fontSizeMultiplier = line.emphasized ? 1.55 : effectiveStyle.layout === "stacked" ? 0.82 : 1;
+            const fontSizeMultiplier = line.emphasized
+              ? 1.55
+              : effectiveStyle.layout === "stacked"
+                ? 0.82
+                : isFullscreen
+                  ? 1.35
+                  : 1;
 
             return (
               <div

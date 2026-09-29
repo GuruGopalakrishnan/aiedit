@@ -21,7 +21,7 @@ export type CaptionGroup = {
 };
 
 export type CaptionDecoration = "none" | "marker" | "underline" | "gradient";
-export type CaptionLayout = "inline" | "stacked" | "single-word";
+export type CaptionLayout = "inline" | "stacked" | "single-word" | "fullscreen";
 
 export type CaptionPosition =
   | "top-left"
