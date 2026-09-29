@@ -2,6 +2,8 @@ import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { serializeProject } from "@/lib/serializers";
 import { parseManualTranscript } from "@/lib/manualTranscript";
+import { detectSpeechSegments } from "@/services/audio/silenceDetect";
+import { extractAudio } from "@/services/video/metadata";
 
 // Accepts a user-supplied transcript in place of automatic speech-to-text —
 // for source videos where the words are already known (e.g. a scripted
@@ -26,7 +28,13 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ error: "This project has no video yet." }, { status: 400 });
   }
 
-  const { words, rawText } = parseManualTranscript(transcriptText, project.video.duration);
+  let audioPath = project.video.audioPath;
+  if (!audioPath) {
+    audioPath = await extractAudio(project.video.originalPath, project.id).catch(() => null);
+  }
+  const speechSegments = audioPath ? await detectSpeechSegments(audioPath, project.video.duration).catch(() => []) : [];
+
+  const { words, rawText } = parseManualTranscript(transcriptText, project.video.duration, speechSegments);
   if (words.length === 0) {
     return NextResponse.json({ error: "Could not parse any words from that transcript." }, { status: 400 });
   }
