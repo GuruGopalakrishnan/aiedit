@@ -64,6 +64,8 @@ export type CaptionStyle = {
   wordHighlightEnabled: boolean;
   decoration: CaptionDecoration;
   layout: CaptionLayout;
+  positionPercent?: { x: number; y: number }; // 0-100, overrides `position` with a free-form anchor when set
+  rotation?: number; // degrees, -30 to 30
 };
 
 export type CaptionThemeCategory = "minimal" | "bold" | "kinetic" | "editorial" | "business" | "creator" | "tamil";

@@ -102,6 +102,9 @@ export function CaptionOverlay({
     }
   }
 
+  const rotation = effectiveStyle.rotation ?? 0;
+  const posPercent = effectiveStyle.positionPercent;
+
   return (
     <div ref={containerRef} className="pointer-events-none absolute inset-0 overflow-hidden">
       {showSafeArea && (
@@ -109,8 +112,21 @@ export function CaptionOverlay({
       )}
 
       <div
-        className={`absolute inset-0 flex flex-col p-[6%] pt-[8%] pb-[12%] ${positionToFlexClasses(effectiveStyle.position)}`}
-        style={{ gap: effectiveStyle.layout === "stacked" ? 4 * scale : 0 }}
+        className={
+          posPercent
+            ? "absolute flex max-w-[88%] flex-col"
+            : `absolute inset-0 flex flex-col p-[6%] pt-[8%] pb-[12%] ${positionToFlexClasses(effectiveStyle.position)}`
+        }
+        style={
+          posPercent
+            ? {
+                left: `${posPercent.x}%`,
+                top: `${posPercent.y}%`,
+                transform: "translate(-50%, -50%)",
+                gap: effectiveStyle.layout === "stacked" ? 4 * scale : 0,
+              }
+            : { gap: effectiveStyle.layout === "stacked" ? 4 * scale : 0 }
+        }
       >
         <AnimatePresence mode="sync">
           {active &&
@@ -128,6 +144,7 @@ export function CaptionOverlay({
                   className={`inline-block max-w-full rounded-md ${backgroundClasses(effectiveStyle.background)}`}
                   style={{
                     padding: effectiveStyle.background === "none" ? 0 : `${4 * scale}px ${10 * scale}px`,
+                    rotate: rotation || undefined,
                   }}
                 >
                   <p

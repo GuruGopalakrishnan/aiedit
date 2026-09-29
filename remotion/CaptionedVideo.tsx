@@ -82,6 +82,8 @@ export function CaptionedVideo({ videoSrc, captions, style, showSafeArea }: Capt
   const captionStartFrame = active ? Math.round(active.start * fps) : 0;
   const captionEndFrame = active ? Math.round(active.end * fps) : 0;
   const staggerFrames = Math.max(1, Math.round(STAGGER_SECONDS * fps));
+  const rotation = effectiveStyle.rotation ?? 0;
+  const posPercent = effectiveStyle.positionPercent;
 
   let lines: SceneLine[] = [];
   if (active) {
@@ -112,16 +114,31 @@ export function CaptionedVideo({ videoSrc, captions, style, showSafeArea }: Capt
         />
       )}
 
-      <AbsoluteFill
-        style={{
-          display: "flex",
-          flexDirection: "column",
-          gap: effectiveStyle.layout === "stacked" ? 4 * scale : 0,
-          padding: `${8 * scale}px ${6 * scale}px`,
-          paddingTop: `${8 * scale + 0.08 * width}px`,
-          paddingBottom: `${8 * scale + 0.12 * width}px`,
-          ...align,
-        }}
+      <div
+        style={
+          posPercent
+            ? {
+                position: "absolute",
+                left: `${posPercent.x}%`,
+                top: `${posPercent.y}%`,
+                transform: "translate(-50%, -50%)",
+                display: "flex",
+                flexDirection: "column",
+                gap: effectiveStyle.layout === "stacked" ? 4 * scale : 0,
+                maxWidth: "88%",
+              }
+            : {
+                position: "absolute",
+                inset: 0,
+                display: "flex",
+                flexDirection: "column",
+                gap: effectiveStyle.layout === "stacked" ? 4 * scale : 0,
+                padding: `${8 * scale}px ${6 * scale}px`,
+                paddingTop: `${8 * scale + 0.08 * width}px`,
+                paddingBottom: `${8 * scale + 0.12 * width}px`,
+                ...align,
+              }
+        }
       >
         {active &&
           lines.map((line, lineIndex) => {
@@ -141,7 +158,7 @@ export function CaptionedVideo({ videoSrc, captions, style, showSafeArea }: Capt
                 key={lineIndex}
                 style={{
                   opacity: blockStyle.opacity,
-                  transform: blockStyle.transform,
+                  transform: rotation ? `${blockStyle.transform} rotate(${rotation}deg)` : blockStyle.transform,
                   display: "inline-block",
                   maxWidth: "100%",
                   borderRadius: 8,
@@ -153,7 +170,7 @@ export function CaptionedVideo({ videoSrc, captions, style, showSafeArea }: Capt
                   style={{
                     fontWeight: fontWeightValue(effectiveStyle.fontWeight),
                     fontSize: effectiveStyle.fontSize * scale * fontSizeMultiplier,
-                    textAlign: align.textAlign,
+                    textAlign: effectiveStyle.textAlign,
                     lineHeight: 1.25,
                     margin: 0,
                     WebkitTextStroke:
@@ -192,7 +209,7 @@ export function CaptionedVideo({ videoSrc, captions, style, showSafeArea }: Capt
               </div>
             );
           })}
-      </AbsoluteFill>
+      </div>
     </AbsoluteFill>
   );
 }

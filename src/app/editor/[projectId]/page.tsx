@@ -42,6 +42,8 @@ export default function EditorPage() {
   const [currentTime, setCurrentTime] = useState(0);
   const [showSafeArea, setShowSafeArea] = useState(false);
   const [showExportModal, setShowExportModal] = useState(false);
+  const [positionMode, setPositionMode] = useState(false);
+  const previewWrapperRef = useRef<HTMLDivElement>(null);
 
   const load = useCallback(async () => {
     try {
@@ -166,6 +168,72 @@ export default function EditorPage() {
     [activeCaptionId]
   );
 
+  // Position dragging and rotation apply to whichever caption is under the
+  // playhead (so you can reposition just one scene), falling back to the
+  // whole project when nothing is currently active. `local` skips the
+  // network round-trip for continuous updates while dragging.
+  const patchTargetStyle = useCallback(
+    (patch: Partial<CaptionStyle>, opts?: { local?: boolean }) => {
+      if (activeCaptionId) {
+        let merged: Partial<CaptionStyle> = patch;
+        setProject((prev) => {
+          if (!prev) return prev;
+          return {
+            ...prev,
+            captions: prev.captions.map((c) => {
+              if (c.id !== activeCaptionId) return c;
+              merged = { ...c.styleOverrides, ...patch };
+              return { ...c, styleOverrides: merged };
+            }),
+          };
+        });
+        if (!opts?.local) {
+          fetch(`/api/captions/${activeCaptionId}`, {
+            method: "PATCH",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ styleOverrides: merged }),
+          });
+        }
+      } else if (opts?.local) {
+        setProject((prev) => (prev ? { ...prev, styleSettings: { ...prev.styleSettings, ...patch } } : prev));
+      } else {
+        handleStyleChange(patch);
+      }
+    },
+    [activeCaptionId, handleStyleChange]
+  );
+
+  const handlePreviewPointerDown = useCallback(
+    (e: React.PointerEvent<HTMLDivElement>) => {
+      if (!positionMode) return;
+      const wrapper = previewWrapperRef.current;
+      if (!wrapper) return;
+      const rect = wrapper.getBoundingClientRect();
+      const toPercent = (clientX: number, clientY: number) => ({
+        x: Math.min(96, Math.max(4, ((clientX - rect.left) / rect.width) * 100)),
+        y: Math.min(96, Math.max(4, ((clientY - rect.top) / rect.height) * 100)),
+      });
+
+      patchTargetStyle({ positionPercent: toPercent(e.clientX, e.clientY) }, { local: true });
+
+      const onMove = (ev: PointerEvent) => {
+        patchTargetStyle({ positionPercent: toPercent(ev.clientX, ev.clientY) }, { local: true });
+      };
+      const onUp = (ev: PointerEvent) => {
+        window.removeEventListener("pointermove", onMove);
+        window.removeEventListener("pointerup", onUp);
+        patchTargetStyle({ positionPercent: toPercent(ev.clientX, ev.clientY) });
+      };
+      window.addEventListener("pointermove", onMove);
+      window.addEventListener("pointerup", onUp);
+    },
+    [positionMode, patchTargetStyle]
+  );
+
+  const clearPositionOverride = useCallback(() => {
+    patchTargetStyle({ positionPercent: undefined });
+  }, [patchTargetStyle]);
+
   if (error) {
     return (
       <main className="flex min-h-screen items-center justify-center bg-neutral-950 text-red-400">
@@ -218,26 +286,65 @@ export default function EditorPage() {
       {showExportModal && <ExportModal projectId={project.id} onClose={() => setShowExportModal(false)} />}
 
       <div className="flex flex-1 flex-col lg:flex-row">
-        <section className="flex flex-1 items-center justify-center bg-black p-6">
+        <section className="flex flex-1 flex-col items-center justify-center gap-3 bg-black p-6">
           {videoUrl && project.video ? (
-            <div
-              className="relative max-h-[70vh] w-auto max-w-full"
-              style={{ aspectRatio: `${project.video.width} / ${project.video.height}` }}
-            >
-              <VideoPlayer
-                ref={videoRef}
-                src={videoUrl}
-                onTimeUpdate={(e) => setCurrentTime(e.currentTarget.currentTime)}
-              />
-              {hasCaptions && (
-                <CaptionOverlay
-                  captions={project.captions}
-                  style={project.styleSettings}
-                  currentTime={currentTime}
-                  showSafeArea={showSafeArea}
+            <>
+              <div
+                ref={previewWrapperRef}
+                onPointerDown={handlePreviewPointerDown}
+                className="relative max-h-[70vh] w-auto max-w-full"
+                style={{ aspectRatio: `${project.video.width} / ${project.video.height}`, cursor: positionMode ? "crosshair" : undefined }}
+              >
+                <VideoPlayer
+                  ref={videoRef}
+                  src={videoUrl}
+                  onTimeUpdate={(e) => setCurrentTime(e.currentTarget.currentTime)}
                 />
+                {hasCaptions && (
+                  <CaptionOverlay
+                    captions={project.captions}
+                    style={project.styleSettings}
+                    currentTime={currentTime}
+                    showSafeArea={showSafeArea}
+                  />
+                )}
+                {positionMode && (
+                  <div className="pointer-events-none absolute inset-0 border-2 border-dashed border-sky-400/60" />
+                )}
+              </div>
+              {hasCaptions && (
+                <div className="flex flex-wrap items-center justify-center gap-2">
+                  <button
+                    onClick={() => setPositionMode((v) => !v)}
+                    className={`rounded-lg border px-3 py-1.5 text-xs font-medium ${
+                      positionMode ? "border-sky-400 bg-sky-400/10 text-sky-300" : "border-white/20 text-white hover:bg-white/10"
+                    }`}
+                  >
+                    {positionMode ? "Drag on the video — click to stop" : "Drag to Position"}
+                  </button>
+                  <button
+                    onClick={clearPositionOverride}
+                    className="rounded-lg border border-white/20 px-3 py-1.5 text-xs font-medium text-white hover:bg-white/10"
+                  >
+                    Reset Position
+                  </button>
+                  <label className="flex items-center gap-1.5 rounded-lg border border-white/20 px-3 py-1.5 text-xs text-white">
+                    Rotate
+                    <input
+                      type="range"
+                      min={-30}
+                      max={30}
+                      value={(activeCaption?.styleOverrides.rotation ?? project.styleSettings.rotation) ?? 0}
+                      onChange={(e) => patchTargetStyle({ rotation: Number(e.target.value) })}
+                      className="w-24"
+                    />
+                  </label>
+                  <span className="text-[10px] text-neutral-500">
+                    {activeCaption ? "Applies to this scene" : "Applies to whole video"}
+                  </span>
+                </div>
               )}
-            </div>
+            </>
           ) : (
             <p className="text-neutral-500">No video attached to this project.</p>
           )}
