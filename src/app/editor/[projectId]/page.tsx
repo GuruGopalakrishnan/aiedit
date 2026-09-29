@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useRef, useState } from "react";
 import { useParams } from "next/navigation";
+import Link from "next/link";
 import { VideoPlayer } from "@/components/VideoPlayer";
 import { CaptionEditor } from "@/components/CaptionEditor";
 import { CaptionOverlay } from "@/components/CaptionOverlay";
@@ -195,13 +196,23 @@ export default function EditorPage() {
           <p className="truncate text-sm font-medium">{project.name}</p>
           <p className="text-xs text-neutral-500">{STATUS_LABEL[project.status]}</p>
         </div>
-        <button
-          onClick={() => setShowExportModal(true)}
-          disabled={!hasCaptions}
-          className="shrink-0 rounded-lg bg-white px-3 py-2 text-sm font-medium text-black hover:bg-neutral-200 disabled:cursor-not-allowed disabled:opacity-40 sm:px-4"
-        >
-          Export Video
-        </button>
+        <div className="flex shrink-0 items-center gap-2">
+          <Link
+            href={`/editor/${project.id}/compare`}
+            className={`rounded-lg border border-white/20 px-3 py-2 text-sm font-medium text-white hover:bg-white/10 sm:px-4 ${
+              !hasCaptions ? "pointer-events-none opacity-40" : ""
+            }`}
+          >
+            Compare Styles
+          </Link>
+          <button
+            onClick={() => setShowExportModal(true)}
+            disabled={!hasCaptions}
+            className="rounded-lg bg-white px-3 py-2 text-sm font-medium text-black hover:bg-neutral-200 disabled:cursor-not-allowed disabled:opacity-40 sm:px-4"
+          >
+            Export Video
+          </button>
+        </div>
       </header>
 
       {showExportModal && <ExportModal projectId={project.id} onClose={() => setShowExportModal(false)} />}
