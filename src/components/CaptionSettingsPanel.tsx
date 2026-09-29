@@ -7,6 +7,7 @@ import type {
   BackgroundStyle,
   CaptionAnimation,
   CaptionDecoration,
+  CaptionLayout,
   CaptionPosition,
   CaptionStyle,
   FontWeight,
@@ -21,6 +22,11 @@ const DECORATIONS: { value: CaptionDecoration; label: string }[] = [
   { value: "marker", label: "Marker" },
   { value: "underline", label: "Underline" },
   { value: "gradient", label: "Gradient" },
+];
+const LAYOUTS: { value: CaptionLayout; label: string; hint: string }[] = [
+  { value: "inline", label: "Inline", hint: "One block, all words together" },
+  { value: "stacked", label: "Stacked", hint: "Short lines, emphasis gets its own line" },
+  { value: "single-word", label: "Word Pop", hint: "One word at a time, synced to speech" },
 ];
 const STROKES: StrokeWidth[] = ["none", "thin", "medium", "thick"];
 const BACKGROUNDS: BackgroundStyle[] = ["none", "solid", "semi-transparent"];
@@ -110,6 +116,23 @@ export function CaptionSettingsPanel({
           />
           <span className="w-8 text-right font-mono">{style.fontSize}</span>
         </label>
+      </Section>
+
+      <Section title="Layout">
+        <div className="space-y-1.5">
+          {LAYOUTS.map((l) => (
+            <button
+              key={l.value}
+              onClick={() => onChange({ layout: l.value })}
+              className={`w-full rounded-lg border px-2.5 py-1.5 text-left text-xs ${
+                style.layout === l.value ? "border-white bg-white/10 text-white" : "border-white/10 text-neutral-300 hover:border-white/30"
+              }`}
+            >
+              <p className="font-medium">{l.label}</p>
+              <p className="text-[10px] text-neutral-500">{l.hint}</p>
+            </button>
+          ))}
+        </div>
       </Section>
 
       <Section title="Animation">

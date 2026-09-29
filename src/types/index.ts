@@ -21,6 +21,7 @@ export type CaptionGroup = {
 };
 
 export type CaptionDecoration = "none" | "marker" | "underline" | "gradient";
+export type CaptionLayout = "inline" | "stacked" | "single-word";
 
 export type CaptionPosition =
   | "top-left"
@@ -62,6 +63,7 @@ export type CaptionStyle = {
   animation: CaptionAnimation;
   wordHighlightEnabled: boolean;
   decoration: CaptionDecoration;
+  layout: CaptionLayout;
 };
 
 export type CaptionThemeCategory = "minimal" | "bold" | "kinetic" | "editorial" | "business" | "creator" | "tamil";

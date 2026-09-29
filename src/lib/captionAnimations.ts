@@ -44,3 +44,14 @@ export const CAPTION_ANIMATION_VARIANTS: Record<CaptionAnimation, Variants> = {
     exit: { opacity: 0, transition: { duration: 0.15 } },
   },
 };
+
+/** Same enter/exit variants, with the entrance staggered by `delaySeconds` -- used for stacked-layout lines so they don't all pop in at once. */
+export function withEnterDelay(variants: Variants, delaySeconds: number): Variants {
+  if (delaySeconds <= 0) return variants;
+  const animate = variants.animate as Record<string, unknown>;
+  const transition = (animate.transition as Record<string, unknown>) ?? {};
+  return {
+    ...variants,
+    animate: { ...animate, transition: { ...transition, delay: delaySeconds } },
+  };
+}
