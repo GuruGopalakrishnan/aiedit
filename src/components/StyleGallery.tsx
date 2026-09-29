@@ -8,8 +8,10 @@ import type { CaptionGroup, CaptionPreset, CaptionThemeCategory, TranscriptWord 
 const CYCLE_MS = 2400;
 const DEMO_TEXT = ["Create", "better", "ads", "in", "minutes"];
 
-const CATEGORIES: { value: CaptionThemeCategory | "all"; label: string }[] = [
+const CATEGORIES: { value: CaptionThemeCategory | "all" | "favorites"; label: string }[] = [
   { value: "all", label: "All" },
+  { value: "favorites", label: "★ Favorites" },
+  { value: "custom", label: "My Presets" },
   { value: "minimal", label: "Minimal" },
   { value: "bold", label: "Bold" },
   { value: "kinetic", label: "Kinetic" },
@@ -44,15 +46,23 @@ function ThemeCard({
   preset,
   sampleWords,
   previewTime,
+  isFavorite,
+  isCustom,
   onApplyToVideo,
   onApplyToScene,
+  onToggleFavorite,
+  onDelete,
   canApplyToScene,
 }: {
   preset: CaptionPreset;
   sampleWords: TranscriptWord[] | undefined;
   previewTime: number;
+  isFavorite: boolean;
+  isCustom: boolean;
   onApplyToVideo: () => void;
   onApplyToScene: () => void;
+  onToggleFavorite: () => void;
+  onDelete: () => void;
   canApplyToScene: boolean;
 }) {
   const sample = useMemo(() => buildSampleCaption(sampleWords), [sampleWords]);
@@ -61,6 +71,22 @@ function ThemeCard({
     <div className="rounded-xl border border-white/10 bg-neutral-900 p-2.5">
       <div className="relative aspect-[9/16] w-full overflow-hidden rounded-lg bg-black">
         <CaptionOverlay captions={[sample]} style={preset.style} currentTime={previewTime} showSafeArea={false} />
+        <button
+          onClick={onToggleFavorite}
+          title={isFavorite ? "Remove from favorites" : "Add to favorites"}
+          className="absolute right-1.5 top-1.5 rounded-full bg-black/50 px-1.5 py-1 text-sm leading-none"
+        >
+          {isFavorite ? "★" : "☆"}
+        </button>
+        {isCustom && (
+          <button
+            onClick={onDelete}
+            title="Delete this preset"
+            className="absolute left-1.5 top-1.5 rounded-full bg-black/50 px-1.5 py-1 text-[10px] leading-none text-red-300"
+          >
+            ✕
+          </button>
+        )}
       </div>
       <p className="mt-2 truncate text-xs font-medium text-white">{preset.name}</p>
       <p className="truncate text-[10px] text-neutral-500">{preset.description}</p>
@@ -84,21 +110,42 @@ function ThemeCard({
   );
 }
 
+type CustomPresetRecord = { id: string; name: string; style: CaptionPreset["style"]; createdAt: string };
+
 export function StyleGallery({
   sampleWords,
-  activePresetId,
+  currentStyle,
   canApplyToScene,
   onApplyToVideo,
   onApplyToScene,
 }: {
   sampleWords: TranscriptWord[] | undefined;
-  activePresetId?: string;
+  currentStyle: CaptionPreset["style"];
   canApplyToScene: boolean;
   onApplyToVideo: (preset: CaptionPreset) => void;
   onApplyToScene: (preset: CaptionPreset) => void;
 }) {
-  const [category, setCategory] = useState<CaptionThemeCategory | "all">("all");
+  const [category, setCategory] = useState<CaptionThemeCategory | "all" | "favorites">("all");
   const [previewTime, setPreviewTime] = useState(0);
+  const [customPresets, setCustomPresets] = useState<CustomPresetRecord[]>([]);
+  const [favoriteIds, setFavoriteIds] = useState<string[]>([]);
+  const [saveName, setSaveName] = useState("");
+  const [saving, setSaving] = useState(false);
+
+  const loadExtras = () => {
+    fetch("/api/presets")
+      .then((r) => r.json())
+      .then((d) => setCustomPresets(d.presets ?? []))
+      .catch(() => {});
+    fetch("/api/favorites")
+      .then((r) => r.json())
+      .then((d) => setFavoriteIds(d.presetIds ?? []))
+      .catch(() => {});
+  };
+
+  useEffect(() => {
+    loadExtras();
+  }, []);
 
   useEffect(() => {
     const start = Date.now();
@@ -108,11 +155,79 @@ export function StyleGallery({
     return () => clearInterval(id);
   }, []);
 
-  const filtered = category === "all" ? CAPTION_PRESETS : CAPTION_PRESETS.filter((p) => p.category === category);
+  const allPresets: CaptionPreset[] = useMemo(() => {
+    const custom: CaptionPreset[] = customPresets.map((p) => ({
+      id: p.id,
+      name: p.name,
+      description: "Saved preset",
+      category: "custom",
+      style: p.style,
+    }));
+    return [...CAPTION_PRESETS, ...custom];
+  }, [customPresets]);
+
+  const filtered = allPresets.filter((p) => {
+    if (category === "all") return true;
+    if (category === "favorites") return favoriteIds.includes(p.id);
+    return p.category === category;
+  });
+
+  const toggleFavorite = async (presetId: string) => {
+    const isFav = favoriteIds.includes(presetId);
+    setFavoriteIds((prev) => (isFav ? prev.filter((id) => id !== presetId) : [...prev, presetId]));
+    if (isFav) {
+      await fetch("/api/favorites", { method: "DELETE", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ presetId }) });
+    } else {
+      await fetch("/api/favorites", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ presetId }) });
+    }
+  };
+
+  const deleteCustom = async (presetId: string) => {
+    setCustomPresets((prev) => prev.filter((p) => p.id !== presetId));
+    setFavoriteIds((prev) => prev.filter((id) => id !== presetId));
+    await fetch(`/api/presets/${presetId}`, { method: "DELETE" });
+  };
+
+  const saveCurrent = async () => {
+    if (!saveName.trim()) return;
+    setSaving(true);
+    try {
+      const res = await fetch("/api/presets", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ name: saveName.trim(), style: currentStyle }),
+      });
+      const data = await res.json();
+      if (res.ok) {
+        setCustomPresets((prev) => [data.preset, ...prev]);
+        setSaveName("");
+        setCategory("custom");
+      }
+    } finally {
+      setSaving(false);
+    }
+  };
 
   return (
     <div>
-      <div className="flex flex-wrap gap-1.5">
+      <div className="flex flex-wrap items-center gap-2 rounded-lg border border-white/10 bg-white/5 p-2">
+        <input
+          type="text"
+          value={saveName}
+          onChange={(e) => setSaveName(e.target.value)}
+          placeholder="Name your current style (e.g. Guru Style 01)"
+          className="min-w-0 flex-1 rounded border border-white/10 bg-neutral-800 px-2 py-1.5 text-xs text-white placeholder:text-neutral-600"
+        />
+        <button
+          onClick={saveCurrent}
+          disabled={saving || !saveName.trim()}
+          className="shrink-0 rounded-md bg-white px-2.5 py-1.5 text-xs font-medium text-black hover:bg-neutral-200 disabled:opacity-40"
+        >
+          {saving ? "Saving…" : "Save as My Preset"}
+        </button>
+      </div>
+
+      <div className="mt-3 flex flex-wrap gap-1.5">
         {CATEGORIES.map((c) => (
           <button
             key={c.value}
@@ -133,15 +248,19 @@ export function StyleGallery({
             preset={preset}
             sampleWords={sampleWords}
             previewTime={previewTime}
+            isFavorite={favoriteIds.includes(preset.id)}
+            isCustom={preset.category === "custom"}
             canApplyToScene={canApplyToScene}
             onApplyToVideo={() => onApplyToVideo(preset)}
             onApplyToScene={() => onApplyToScene(preset)}
+            onToggleFavorite={() => toggleFavorite(preset.id)}
+            onDelete={() => deleteCustom(preset.id)}
           />
         ))}
+        {filtered.length === 0 && (
+          <p className="col-span-full py-6 text-center text-xs text-neutral-500">Nothing here yet.</p>
+        )}
       </div>
-      {activePresetId && (
-        <p className="mt-2 text-[10px] text-neutral-500">Current whole-video theme: {activePresetId}</p>
-      )}
     </div>
   );
 }

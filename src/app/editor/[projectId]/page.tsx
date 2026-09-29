@@ -383,7 +383,7 @@ export default function EditorPage() {
           <div className="mt-3">
             <StyleGallery
               sampleWords={activeCaption?.words ?? project.captions[0]?.words}
-              activePresetId={project.styleSettings.presetId}
+              currentStyle={activeCaption ? { ...project.styleSettings, ...activeCaption.styleOverrides } : project.styleSettings}
               canApplyToScene={Boolean(activeCaptionId)}
               onApplyToVideo={applyPresetToVideo}
               onApplyToScene={applyPresetToScene}

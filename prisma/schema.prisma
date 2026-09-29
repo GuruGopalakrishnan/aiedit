@@ -63,6 +63,19 @@ model Caption {
   @@index([projectId, orderIndex])
 }
 
+model CustomPreset {
+  id        String   @id @default(uuid())
+  name      String
+  style     String // JSON: CaptionStyle
+  createdAt DateTime @default(now())
+}
+
+model Favorite {
+  id        String   @id @default(uuid())
+  presetId  String   @unique // a built-in CAPTION_PRESETS id or a CustomPreset id
+  createdAt DateTime @default(now())
+}
+
 model RenderJob {
   id         String   @id @default(uuid())
   projectId  String

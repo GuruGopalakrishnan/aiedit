@@ -68,7 +68,7 @@ export type CaptionStyle = {
   rotation?: number; // degrees, -30 to 30
 };
 
-export type CaptionThemeCategory = "minimal" | "bold" | "kinetic" | "editorial" | "business" | "creator" | "tamil";
+export type CaptionThemeCategory = "minimal" | "bold" | "kinetic" | "editorial" | "business" | "creator" | "tamil" | "custom";
 
 export type CaptionPreset = {
   id: string;
