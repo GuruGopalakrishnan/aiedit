@@ -44,6 +44,7 @@ export async function POST(request: NextRequest) {
         text: c.text,
         words: JSON.parse(c.words),
         highlightedWords: JSON.parse(c.highlightedWords),
+        styleOverrides: JSON.parse(c.styleOverrides || "{}"),
       }));
       finalGroups = await provider.detectHighlights(existingGroups);
     } else {
@@ -64,6 +65,7 @@ export async function POST(request: NextRequest) {
             text: g.text,
             words: JSON.stringify(g.words),
             highlightedWords: JSON.stringify(g.highlightedWords),
+            styleOverrides: JSON.stringify(g.styleOverrides ?? {}),
           })),
         });
       } else {

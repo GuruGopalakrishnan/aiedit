@@ -60,6 +60,7 @@ export async function POST(request: NextRequest) {
     text: c.text,
     words: JSON.parse(c.words),
     highlightedWords: JSON.parse(c.highlightedWords),
+    styleOverrides: JSON.parse(c.styleOverrides || "{}"),
   }));
   const style: CaptionStyle = JSON.parse(project.styleSettings);
 

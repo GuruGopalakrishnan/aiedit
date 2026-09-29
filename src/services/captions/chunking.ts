@@ -56,6 +56,7 @@ export function chunkTranscript(words: TranscriptWord[], settings: CaptionSettin
     text: groupWords.map((w) => w.text).join(" "),
     words: groupWords,
     highlightedWords: [],
+    styleOverrides: {},
   }));
 }
 

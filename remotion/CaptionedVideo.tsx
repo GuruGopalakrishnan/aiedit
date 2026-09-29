@@ -1,3 +1,4 @@
+import { Fragment } from "react";
 import { AbsoluteFill, OffthreadVideo, useCurrentFrame, useVideoConfig } from "remotion";
 import {
   CANONICAL_CANVAS_WIDTH,
@@ -9,6 +10,7 @@ import {
   positionToAlignStyle,
   strokeWidthPx,
 } from "@/lib/captionStyle";
+import { resolveWordFontFamily } from "@/lib/fonts";
 import type { CaptionGroup, CaptionStyle } from "@/types";
 import { getCaptionFrameStyle, getWordScale } from "./animations";
 
@@ -32,13 +34,15 @@ export function CaptionedVideo({ videoSrc, captions, style, showSafeArea }: Capt
   const scale = width / CANONICAL_CANVAS_WIDTH;
 
   const active = findActiveCaption(captions, currentTime);
-  const activeWordId = active && style.wordHighlightEnabled ? findActiveWordId(active, currentTime) : null;
-  const align = positionToAlignStyle(style.position);
+  const effectiveStyle: CaptionStyle = active ? { ...style, ...active.styleOverrides } : style;
+  const activeWordId = active && effectiveStyle.wordHighlightEnabled ? findActiveWordId(active, currentTime) : null;
+  const align = positionToAlignStyle(effectiveStyle.position);
+  const isGradient = effectiveStyle.decoration === "gradient";
 
   const captionStartFrame = active ? Math.round(active.start * fps) : 0;
   const captionEndFrame = active ? Math.round(active.end * fps) : 0;
   const blockStyle = active
-    ? getCaptionFrameStyle(style.animation, frame - captionStartFrame, captionEndFrame - frame, fps)
+    ? getCaptionFrameStyle(effectiveStyle.animation, frame - captionStartFrame, captionEndFrame - frame, fps)
     : null;
 
   return (
@@ -75,41 +79,56 @@ export function CaptionedVideo({ videoSrc, captions, style, showSafeArea }: Capt
               display: "inline-block",
               maxWidth: "100%",
               borderRadius: 8,
-              backgroundColor: backgroundColorValue(style.background),
-              padding: style.background === "none" ? 0 : `${4 * scale}px ${10 * scale}px`,
+              backgroundColor: backgroundColorValue(effectiveStyle.background),
+              padding: effectiveStyle.background === "none" ? 0 : `${4 * scale}px ${10 * scale}px`,
             }}
           >
             <p
               style={{
-                fontFamily: style.fontFamily,
-                fontWeight: fontWeightValue(style.fontWeight),
-                fontSize: style.fontSize * scale,
+                fontWeight: fontWeightValue(effectiveStyle.fontWeight),
+                fontSize: effectiveStyle.fontSize * scale,
                 textAlign: align.textAlign,
                 lineHeight: 1.25,
                 margin: 0,
-                WebkitTextStroke: style.stroke === "none" ? undefined : `${strokeWidthPx(style.stroke, scale)}px black`,
-                textShadow: style.shadow ? `0 ${2 * scale}px ${8 * scale}px rgba(0,0,0,0.7)` : undefined,
+                WebkitTextStroke:
+                  effectiveStyle.stroke === "none" ? undefined : `${strokeWidthPx(effectiveStyle.stroke, scale)}px black`,
+                textShadow: effectiveStyle.shadow ? `0 ${2 * scale}px ${8 * scale}px rgba(0,0,0,0.7)` : undefined,
+                backgroundImage: isGradient
+                  ? `linear-gradient(90deg, ${effectiveStyle.textColor}, ${effectiveStyle.highlightColor})`
+                  : undefined,
+                backgroundClip: isGradient ? "text" : undefined,
+                WebkitBackgroundClip: isGradient ? "text" : undefined,
+                color: isGradient ? "transparent" : undefined,
               }}
             >
               {active.words.map((w, i) => {
-                const isHighlighted = style.wordHighlightEnabled
+                const isHighlighted = effectiveStyle.wordHighlightEnabled
                   ? w.id === activeWordId
                   : active.highlightedWords.includes(w.id);
-                const wordStartFrame = style.wordHighlightEnabled ? Math.round(w.start * fps) : captionStartFrame;
+                const wordStartFrame = effectiveStyle.wordHighlightEnabled ? Math.round(w.start * fps) : captionStartFrame;
                 const wordScale = isHighlighted ? getWordScale(frame - wordStartFrame, fps) : 1;
+                const showMarker = isHighlighted && effectiveStyle.decoration === "marker";
+                const showUnderline = isHighlighted && effectiveStyle.decoration === "underline";
 
                 return (
-                  <span
-                    key={w.id}
-                    style={{
-                      display: "inline-block",
-                      transform: `scale(${wordScale})`,
-                      color: isHighlighted ? style.highlightColor : style.textColor,
-                    }}
-                  >
-                    {applyTextCase(w.text, style.textCase)}
-                    {i < active.words.length - 1 ? " " : ""}
-                  </span>
+                  <Fragment key={w.id}>
+                    <span
+                      style={{
+                        display: "inline-block",
+                        transform: `scale(${wordScale})`,
+                        fontFamily: resolveWordFontFamily(w.text, effectiveStyle.fontFamily),
+                        color: isGradient ? undefined : isHighlighted ? effectiveStyle.highlightColor : effectiveStyle.textColor,
+                        backgroundColor: showMarker ? effectiveStyle.highlightColor : undefined,
+                        borderRadius: showMarker ? 4 * scale : undefined,
+                        padding: showMarker ? `0 ${4 * scale}px` : undefined,
+                        borderBottom: showUnderline ? `${3 * scale}px solid ${effectiveStyle.highlightColor}` : undefined,
+                        ...(showMarker ? { color: "#000000" } : {}),
+                      }}
+                    >
+                      {applyTextCase(w.text, effectiveStyle.textCase)}
+                    </span>
+                    {i < active.words.length - 1 ? " " : ""}
+                  </Fragment>
                 );
               })}
             </p>

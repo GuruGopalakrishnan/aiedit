@@ -17,7 +17,10 @@ export type CaptionGroup = {
   text: string;
   words: TranscriptWord[];
   highlightedWords: string[]; // TranscriptWord.id values from `words` marked for highlight emphasis
+  styleOverrides: Partial<CaptionStyle>; // per-scene overrides layered on top of the project's styleSettings
 };
+
+export type CaptionDecoration = "none" | "marker" | "underline" | "gradient";
 
 export type CaptionPosition =
   | "top-left"
@@ -58,12 +61,16 @@ export type CaptionStyle = {
   position: CaptionPosition;
   animation: CaptionAnimation;
   wordHighlightEnabled: boolean;
+  decoration: CaptionDecoration;
 };
+
+export type CaptionThemeCategory = "minimal" | "bold" | "kinetic" | "editorial" | "business" | "creator" | "tamil";
 
 export type CaptionPreset = {
   id: string;
   name: string;
   description: string;
+  category: CaptionThemeCategory;
   style: CaptionStyle;
 };
 

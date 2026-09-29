@@ -58,6 +58,7 @@ model Caption {
   text              String
   words             String // JSON: TranscriptWord[]
   highlightedWords  String // JSON: string[]
+  styleOverrides    String  @default("{}") // JSON: Partial<CaptionStyle> -- per-scene style, layered on Project.styleSettings
 
   @@index([projectId, orderIndex])
 }

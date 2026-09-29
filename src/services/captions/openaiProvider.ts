@@ -80,6 +80,7 @@ export class OpenAICaptionProvider implements CaptionIntelligenceProvider {
           text: groupWords.map((w) => w.text).join(" "),
           words: groupWords,
           highlightedWords: [],
+          styleOverrides: {},
         });
       }
 

@@ -11,6 +11,9 @@ export async function PATCH(request: NextRequest, { params }: Params) {
   const data: Record<string, unknown> = {};
   if (typeof body.text === "string") data.text = body.text;
   if (Array.isArray(body.highlightedWords)) data.highlightedWords = JSON.stringify(body.highlightedWords);
+  if (body.styleOverrides && typeof body.styleOverrides === "object") {
+    data.styleOverrides = JSON.stringify(body.styleOverrides);
+  }
 
   if (Object.keys(data).length === 0) {
     return NextResponse.json({ error: "Nothing to update." }, { status: 400 });

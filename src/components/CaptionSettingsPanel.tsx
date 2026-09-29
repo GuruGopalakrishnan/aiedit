@@ -1,10 +1,12 @@
 "use client";
 
 import { ColorPicker } from "@/components/ColorPicker";
+import { FontPicker } from "@/components/FontPicker";
 import { CAPTION_PRESETS } from "@/lib/presets";
 import type {
   BackgroundStyle,
   CaptionAnimation,
+  CaptionDecoration,
   CaptionPosition,
   CaptionStyle,
   FontWeight,
@@ -13,8 +15,13 @@ import type {
   TextCase,
 } from "@/types";
 
-const FONT_FAMILIES = ["Inter", "Poppins", "Montserrat", "Anton", "Bebas Neue"];
 const FONT_WEIGHTS: FontWeight[] = ["regular", "medium", "semibold", "bold", "extrabold"];
+const DECORATIONS: { value: CaptionDecoration; label: string }[] = [
+  { value: "none", label: "None" },
+  { value: "marker", label: "Marker" },
+  { value: "underline", label: "Underline" },
+  { value: "gradient", label: "Gradient" },
+];
 const STROKES: StrokeWidth[] = ["none", "thin", "medium", "thick"];
 const BACKGROUNDS: BackgroundStyle[] = ["none", "solid", "semi-transparent"];
 const TEXT_CASES: TextCase[] = ["original", "uppercase", "lowercase", "titlecase"];
@@ -49,11 +56,13 @@ export function CaptionSettingsPanel({
   onChange,
   showSafeArea,
   onToggleSafeArea,
+  previewText,
 }: {
   style: CaptionStyle;
   onChange: (patch: Partial<CaptionStyle>) => void;
   showSafeArea: boolean;
   onToggleSafeArea: () => void;
+  previewText?: string;
 }) {
   return (
     <div className="space-y-4">
@@ -77,17 +86,7 @@ export function CaptionSettingsPanel({
       </Section>
 
       <Section title="Font">
-        <select
-          value={style.fontFamily}
-          onChange={(e) => onChange({ fontFamily: e.target.value })}
-          className="w-full rounded border border-white/10 bg-neutral-800 px-2 py-1 text-xs text-white"
-        >
-          {FONT_FAMILIES.map((f) => (
-            <option key={f} value={f}>
-              {f}
-            </option>
-          ))}
-        </select>
+        <FontPicker value={style.fontFamily} previewText={previewText ?? ""} onChange={(fontFamily) => onChange({ fontFamily })} />
         <select
           value={style.fontWeight}
           onChange={(e) => onChange({ fontWeight: e.target.value as FontWeight })}
@@ -198,6 +197,22 @@ export function CaptionSettingsPanel({
               }`}
             >
               {b}
+            </button>
+          ))}
+        </div>
+      </Section>
+
+      <Section title="Decoration">
+        <div className="flex gap-1.5">
+          {DECORATIONS.map((d) => (
+            <button
+              key={d.value}
+              onClick={() => onChange({ decoration: d.value })}
+              className={`flex-1 rounded border px-2 py-1 text-[11px] ${
+                style.decoration === d.value ? "border-white bg-white/10 text-white" : "border-white/10 text-neutral-400"
+              }`}
+            >
+              {d.label}
             </button>
           ))}
         </div>

@@ -37,6 +37,7 @@ export function serializeProject(project: ProjectWithRelations): Project {
       text: c.text,
       words: JSON.parse(c.words),
       highlightedWords: JSON.parse(c.highlightedWords),
+      styleOverrides: JSON.parse(c.styleOverrides || "{}"),
     }));
 
   return {

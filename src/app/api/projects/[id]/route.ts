@@ -128,6 +128,7 @@ export async function POST(request: NextRequest, { params }: Params) {
           text: c.text,
           words: c.words,
           highlightedWords: c.highlightedWords,
+          styleOverrides: c.styleOverrides,
         })),
       },
     },

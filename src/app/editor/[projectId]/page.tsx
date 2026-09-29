@@ -7,11 +7,12 @@ import { CaptionEditor } from "@/components/CaptionEditor";
 import { CaptionOverlay } from "@/components/CaptionOverlay";
 import { CaptionSettingsPanel } from "@/components/CaptionSettingsPanel";
 import { ExportModal } from "@/components/ExportModal";
+import { StyleGallery } from "@/components/StyleGallery";
 import { Timeline } from "@/components/Timeline";
 import { findActiveCaption } from "@/lib/captionStyle";
 import { toMediaUrl } from "@/lib/mediaUrl";
 import { useDebouncedCallback } from "@/lib/useDebouncedCallback";
-import type { CaptionGroup, CaptionStyle, Project } from "@/types";
+import type { CaptionGroup, CaptionPreset, CaptionStyle, Project } from "@/types";
 
 function formatDuration(seconds: number) {
   const m = Math.floor(seconds / 60);
@@ -138,6 +139,32 @@ export default function EditorPage() {
     setCurrentTime(time);
   }, []);
 
+  const applyPresetToVideo = useCallback(
+    (preset: CaptionPreset) => {
+      handleStyleChange(preset.style);
+    },
+    [handleStyleChange]
+  );
+
+  const activeCaptionId = project ? findActiveCaption(project.captions, currentTime)?.id ?? null : null;
+
+  const applyPresetToScene = useCallback(
+    async (preset: CaptionPreset) => {
+      if (!activeCaptionId) return;
+      setProject((prev) =>
+        prev
+          ? { ...prev, captions: prev.captions.map((c) => (c.id === activeCaptionId ? { ...c, styleOverrides: preset.style } : c)) }
+          : prev
+      );
+      await fetch(`/api/captions/${activeCaptionId}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ styleOverrides: preset.style }),
+      });
+    },
+    [activeCaptionId]
+  );
+
   if (error) {
     return (
       <main className="flex min-h-screen items-center justify-center bg-neutral-950 text-red-400">
@@ -223,10 +250,29 @@ export default function EditorPage() {
               onChange={handleStyleChange}
               showSafeArea={showSafeArea}
               onToggleSafeArea={() => setShowSafeArea((v) => !v)}
+              previewText={activeCaption?.text}
             />
           </div>
         </aside>
       </div>
+
+      {hasCaptions && (
+        <section className="border-t border-white/10 bg-neutral-950 p-4">
+          <h2 className="text-sm font-semibold text-neutral-300">Style Gallery</h2>
+          <p className="mt-0.5 text-xs text-neutral-500">
+            Apply a theme to the whole video, or seek to a scene and apply it just there.
+          </p>
+          <div className="mt-3">
+            <StyleGallery
+              sampleWords={activeCaption?.words ?? project.captions[0]?.words}
+              activePresetId={project.styleSettings.presetId}
+              canApplyToScene={Boolean(activeCaptionId)}
+              onApplyToVideo={applyPresetToVideo}
+              onApplyToScene={applyPresetToScene}
+            />
+          </div>
+        </section>
+      )}
 
       <section className="border-t border-white/10 bg-neutral-900 p-4">
         <h2 className="text-sm font-semibold text-neutral-300">Timeline</h2>
